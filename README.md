@@ -75,13 +75,30 @@ Any client that can load a Markdown file and follow relative links can use these
 skills; the commands above are `omp` examples because `omp` is what was exercised
 here.
 
+### Install with the skills CLI
+
+The repository is laid out the way the `skills` CLI expects
+(`skills/<name>/SKILL.md`), so it installs directly from GitHub:
+
+```bash
+npx skills add miketropi/nextora-skills -l                     # list the five skills, install nothing
+npx skills add miketropi/nextora-skills                        # install to the detected agent(s)
+npx skills add miketropi/nextora-skills -s nextora-ecosystem    # install just the router
+npx skills use miketropi/nextora-skills@nextora-design-system    # prompt for one skill, no install
+```
+
+`-a <agents>` targets specific agents, `-g` installs user-level instead of
+project-level, `--copy` copies instead of symlinking, and `-y` skips the
+confirmation prompt. Run `-l` first if you only want to see what is on offer.
+
 Two limits worth stating plainly:
 
-- **Discovery from this repository is not automatic.** Do not assume a tool picks
-  these skills up recursively just because it is pointed at the repository root.
-  Supply the entrypoint file explicitly.
-- These skills are **not installed globally** by anything in this repository, and
-  no client other than `omp` was tested.
+- **Discovery from a bare checkout is not automatic.** Pointing a client at this
+  repository root is not the same as installing it — supply the entrypoint file
+  explicitly, or install it with the CLI above.
+- Only `omp` (direct file load) and the `skills` CLI (`-l`, listing) were
+  exercised while authoring this suite. No other client was tested, and the
+  repository itself installs nothing.
 
 ## How the skills resolve a theme
 
@@ -124,6 +141,9 @@ What was actually exercised while authoring this suite (2026-11-02):
   --tools=read,glob,grep @skills/<name>/SKILL.md …` from this repository root — and
   each answer was inspected against its stated expectations. The two
   design-system scenarios were re-run after the corrections above.
+- **Distribution.** `npx skills add miketropi/nextora-skills -l` against the
+  published repository discovers all five skills with their authored names and
+  descriptions — listing only, with no install into any agent directory.
 
 **Not verified here:** nothing was built, installed or loaded in WordPress. No
 generated child theme, block, template or pattern was rendered in a browser, and no
