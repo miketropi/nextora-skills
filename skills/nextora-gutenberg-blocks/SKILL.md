@@ -56,7 +56,10 @@ Extend an existing block when the requested editing structure already exists
 (another heading field, another list, another toggle). Create a block only when the
 requested **behaviour or editing structure** cannot be expressed by an existing
 block, core block, pattern or block style variation. State which existing block you
-reused, or why nothing fit.
+reused, or why nothing fit — and state it **in the deliverable**, not only in the
+conversation: a docblock in the block's editor entry plus a line in the theme's
+`README` (naming the closest candidates you rejected and what each one lacks). A
+recorder who reads only the repository has to be able to find that decision.
 
 ### 4. Write the metadata first
 

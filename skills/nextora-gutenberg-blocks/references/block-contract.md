@@ -157,6 +157,12 @@ closest folder and renaming every identifier. **[sample convention]**
   `hooks`, `data`, `core-data`, `compose`, `primitives`, `blob`, `notices`, `plugins`.
 - The **view** build has no shim and bundles its own dependencies (that is where
   Swiper, GSAP, OGL and friends live in the shipped bundle).
+- **Wire the block build into the theme's own aggregate build.** A theme whose
+  `npm run build` builds only CSS and the front-end script leaves every
+  `block.json` pointing at an `index.js` that a clean checkout never produced:
+  the block then exists in the working tree and vanishes for the next person.
+  Add `build:blocks` to the `build` chain (and to the build documentation), and
+  check the built files are the ones `block.json` names.
 
 Consequences that bite:
 
@@ -233,6 +239,19 @@ never a silent shape change.
   (`editor-and-repeaters.md`).
 - **No persisted UI state.** Open/closed editor state, draft values and status text
   live in React state; only author-meaningful values reach `setAttributes`.
+- **An affordance must be *visible*, not merely present.** A control that renders as
+  a 24×24 button with no glyph is a missing control to the person using it. Two ways
+  this happens, both seen in a real delivery: an icon-only `Button` using a dashicon
+  string renders blank because the **canvas iframe has no `dashicons` stylesheet**
+  unless the theme enqueues it (`@wordpress/icons` SVGs avoid the problem but are not
+  in the fixed handle list, so check before importing), and a shared label variable
+  gives move-up, move-down and remove the *same* `aria-label`, so nothing — not the
+  tooltip, not a screen reader — says which action is which. Therefore: give every
+  control its own action-specific label (`Remove fact %d`, `Move fact %d up`), pass
+  `showTooltip`, enqueue core `dashicons` for the editor when you use glyph strings,
+  and make destructive actions survive a font that fails to load (a visible word
+  beside the glyph). Then verify by measuring the rendered control — its box, its
+  computed glyph and its label — in the real canvas, not by finding it in the DOM.
 
 ## 9. `render.php` contract
 
