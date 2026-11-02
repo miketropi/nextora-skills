@@ -54,7 +54,7 @@ needs `nextora-gutenberg-blocks` **and** `nextora-design-system`. The router in
 `nextora-ecosystem` applies these rules and links the two shared references.
 Specialists are directly invocable — loading the router first is optional.
 
-## How to use a skill
+## Using these skills
 
 Point the agent at the `SKILL.md` you want and let it load the files that
 entrypoint names, by relative path. From this repository root:
@@ -100,6 +100,103 @@ Two limits worth stating plainly:
   exercised while authoring this suite. No other client was tested, and the
   repository itself installs nothing.
 
+### Give the agent your theme roots
+
+Every skill starts by locating the real sources, and it would rather be told than
+guess. Put the paths in the request:
+
+```text
+Source roots (read-only; do not modify):
+- parent theme: /path/to/wp-content/themes/nextora
+- my child theme: /path/to/wp-content/themes/<child>
+- sample child, structural reference only: /path/to/wp-content/themes/<sample>
+```
+
+If the parent is genuinely unavailable, say so. The skills are written to report
+the missing prerequisite instead of inventing an anchor — and a child-theme
+request cannot be answered responsibly without the parent source.
+
+### Worked examples
+
+Each command is a file plus a prompt. Add the source-roots block above, and add
+`do not write files` when you only want a design to review.
+
+**Plan a whole child theme** — the router dispatches to four specialists:
+
+```bash
+omp -p --no-session @skills/nextora-ecosystem/SKILL.md \
+  "Create a preset-switchable Nextora child named nextfolio: an editable team block and a landing-page pattern. Output a file map and implementation outline only."
+```
+
+**Scaffold the child itself:**
+
+```bash
+omp -p --no-session @skills/nextora-child-themes/SKILL.md \
+  "Output the style.css header, functions.php and the asset-hook snippets for nextfolio. Do not write files."
+```
+
+**Add a block with a repeatable list:**
+
+```bash
+omp -p --no-session @skills/nextora-gutenberg-blocks/SKILL.md \
+  "Add a dynamic block nextfolio/team to my child: rich heading and body, and members managed by a list plus one modal, each member able to carry nested links. Show editor and render.php excerpts first."
+```
+
+**Make appearance follow the visitor's choice:**
+
+```bash
+omp -p --no-session @skills/nextora-design-system/SKILL.md \
+  "My child must follow visitor colour and font switches. Show the theme.json font families, the :root role defaults and the preset files, and explain what changes when NEXTORA_COLOR_SCHEME_SWITCHER is absent."
+```
+
+**Compose a page from what already exists:**
+
+```bash
+omp -p --no-session @skills/nextora-site-composition/SKILL.md \
+  "Compose a nextfolio landing template and an insertable pattern from existing blocks — do not create a new block."
+```
+
+**Review instead of build:**
+
+```bash
+omp -p --no-session @skills/nextora-gutenberg-blocks/SKILL.md \
+  "Review my child's blocks/team/edit.tsx. Report only deviations from skills/nextora-ecosystem/references/quality-gates.md, each with file:line and the fix. Do not edit."
+```
+
+### Combining skills
+
+Some requests need two entrypoints, and the router applies the pairing for you:
+
+- New child **that must follow presets** → `nextora-child-themes` + `nextora-design-system`.
+- New or restyled block **whose look matters** → `nextora-gutenberg-blocks` + `nextora-design-system`.
+
+Load them in the same session rather than one after another, and let
+`nextora-design-system` win on any appearance question. When in doubt, start from
+`nextora-ecosystem`: it makes the same decision and links both shared references.
+
+### Ask for the output shape you want
+
+The entrypoints decide what is *correct*; your request decides how much comes
+back. Useful endings:
+
+| You want | Say |
+| --- | --- |
+| A plan to review first | "Output a file map and implementation outline only." |
+| Code with no side effects | "Do not write files." |
+| A diagnosis | "Report only deviations, each with file:line and the fix." |
+| Options before committing | "Give the two or three viable shapes with tradeoffs, then recommend one." |
+| Runtime proof steps | "Also give the exact commands and browser checks to prove this on a disposable install." |
+
+### What the skills will and won't do
+
+| They will | They won't |
+| --- | --- |
+| Read your actual theme and match its existing conventions | Edit the Nextora parent or the sampled child theme |
+| Reuse an existing block, pattern, helper or token rather than inventing one | Fabricate a function, path or source anchor |
+| Say which rule comes from the parent and which is this suite's own requirement | Promise WordPress-version compatibility from a `style.css` header |
+| Report a missing prerequisite instead of guessing | Ship a starter theme, generator or installer |
+| Hand you the downstream acceptance recipe and the target's own commands | Claim a build or browser result it did not observe |
+
 ## How the skills resolve a theme
 
 No skill embeds a machine path. Each one resolves the roots at run time:
@@ -115,6 +212,18 @@ No skill embeds a machine path. Each one resolves the roots at run time:
 provenance of each rule (parent contract, sample convention, new-output
 requirement, observed defect). It is a map, not a cache: every skill tells the
 agent to reread the live sources before editing.
+
+## Troubleshooting
+
+| Symptom | Why | What to do |
+| --- | --- | --- |
+| It invented a helper, slug or path that does not exist | It never saw the real source | Paste the parent (and child) roots. If the parent really is unavailable, expect an explicit "prerequisite missing" answer rather than code |
+| It claims WordPress 6.4 is supported | `Requires at least` is a declaration, and both themes ship `theme.json` v3 | Ask for the runtime check in `skills/nextora-ecosystem/references/quality-gates.md` §7 and treat the minimum as unproven |
+| It wrote files when you wanted a design | Nothing told it to stop | Add "output only, do not write files" |
+| It copied the sample child's palette, fonts or scope classes | The sample was named without a boundary | Say "structural reference only — this child gets its own slug, palette and scope class" |
+| It answered a broad request with a single specialist | The router was not loaded | Start from `skills/nextora-ecosystem/SKILL.md`, or name the specialists you want |
+| It gave you a design where you wanted a running result | This suite ships no runtime and runs nothing for you | Point it at a disposable WordPress install plus the §8 acceptance recipes in `skills/nextora-ecosystem/references/quality-gates.md`, or accept the answer as a design |
+| It changed an attribute shape in an existing block | The request did not say existing content must survive | Ask for a `deprecated`/migration entry and the save → reload → re-save check |
 
 ## Evaluation
 
