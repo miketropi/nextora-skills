@@ -177,6 +177,19 @@ A child adds appearance by shipping files, not by re-implementing the feature:
 | `styles/typography/<name>.json` | Per-family style variations | Parent-side only today. |
 | `scheme-switcher.json` | Curates the lists and supplies first-visit defaults | Merged parent → child. |
 
+- **Every JSON file under the child's `styles/` tree is also a Site Editor style
+  variation.** `WP_Theme_JSON_Resolver::get_style_variations()` scans `styles/**`
+  recursively for both themes (child wins on basename) and registers any file
+  without `blockTypes` as a variation
+  (`wp-includes/class-wp-theme-json-resolver.php`). So `styles/color-scheme/*.json`,
+  `styles/font-preset/*.json` and `styles/*.json` all appear in the Site Editor's
+  Styles list as well as in the visitor popover — and a font-preset file, which
+  carries no styles, appears there as a no-op variation. This layout makes that
+  unavoidable: give every file a distinct, meaningful `title`, keep the switcher's
+  `presets.*` allowlists tight so the popover stays curated, and tell the owner
+  which entries belong to which mechanism. Do not invent a second directory layout
+  just to hide a variation.
+
 Discovery is `nextora_glob_preset_files( $rel_glob )`: glob the parent theme root,
 then the child theme root, `array_unique` the results. Colour and bundled-theme
 presets iterate `styles/color-scheme/*.json` **then** `styles/*.json` (non-recursive,

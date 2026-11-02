@@ -200,6 +200,44 @@ authority: a hidden filesystem pattern, referenced from a thin template.
 of storing a copy of the markup, so editing the pattern file is the single edit.
 The slug must match the pattern's `Slug:` header exactly.
 
+### 5.1 The second whole-page model — editable page content
+
+A whole-page composition serves one of two needs, and they are different models,
+not two spellings of the same one:
+
+| The layout is… | Model |
+| --- | --- |
+| owned by the theme; the owner edits structured fields inside it | hidden pattern referenced from a thin template with `wp:pattern` |
+| the owner's own copy — narrative text, section order, sections they add | thin template rendering `core/post-content`, plus a hidden **starter** pattern (`Inserter: no`) inserted once into the page by the demo setup |
+
+In the second model the page content is the single authority *after* insertion:
+the starter pattern is insert-time material, not a live reference, so it is not a
+second copy that can drift. The trade-off is the mirror image of §5 — a later edit
+to the pattern file no longer changes an existing page.
+
+Rules for it: do not seed the same copy from both a template and the page; do not
+keep a duplicate hardcoded full-page file beside it; do not hide a page's editable
+content behind a template that renders literal markup; and state the chosen model
+in the theme's own `README`, because it decides who can edit what. A page's own
+content is empty until the starter is inserted, so the setup step and the
+substitutions it needs (a parent ID in a query, for example) belong in that
+README too.
+
+When setup code inserts a pattern's content itself, read it from the registry and
+**slash it before storing**: `wp_insert_post( array( 'post_content' =>
+wp_slash( $pattern_content ) ) )`. Core registers a pattern through
+`serialize_block_attributes()` (`wp-includes/blocks.php`), which encodes `&` as
+`\u0026`, and `wp_insert_post()` unslashes its input — so an un-slashed write
+stores the literal characters `u0026` in the page and the defect only shows up on
+the rendered front end. The same applies to any later content patch (a regex
+replacement over stored markup included). Verify by reading the stored content
+back and rendering the page, not by assuming the pattern file's own text survives
+the round trip.
+
+Choose the model from what the brief says the *owner* must be able to change. A
+brief that asks for page content a non-developer edits is asking for the second
+model, and no pattern-reference recipe satisfies it.
+
 Observed today, and not to be copied into new work: **[observed defect]**
 
 - The sample holds the same section list twice — `patterns/page-home.php`

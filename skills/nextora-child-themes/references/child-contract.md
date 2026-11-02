@@ -332,6 +332,22 @@ Why these choices:
   would repaint the whole editor chrome. The canvas receives the same file through
   `add_editor_style()`, inside the editor iframe. **[sample convention,
   see quality gate 2]**
+- `add_editor_style()` is **necessary but not sufficient** for editor/front-end
+  parity. Core prints the editor stylesheet links ahead of the `global-styles`
+  inline block in the canvas, so a child rule whose specificity ties a core layout
+  rule wins on the front end and loses in the editor; the same declaration then
+  computes two different values (measured in one real child: a 720px rule at 720px
+  on the front end and 540.96px in the canvas). Where a child rule deliberately
+  override core layout — content widths, block margins, control sizing — raise its
+  specificity deliberately and measure the computed value in **both** contexts.
+  Quality gate 2 is a measurement, not an enqueue. Know what you are beating: the
+  competing rule for a paragraph that is a direct child of the post content is
+  core's editor-only `.block-editor-block-list__layout.is-root-container >
+  :where(:not(.alignleft):not(.alignright):not(.alignfull))` at 0-2-0, so an
+  element-qualified class pair (`p.<slug>-lede.wp-block-paragraph`, 0-2-1) wins in
+  both contexts while a bare class rule ties and loses in the editor. Reach for the
+  smallest bump that measures equal in both; `!important` is not the remedy, and
+  deleting the measure is not either.
 - `add_editor_style()` resolves against the **stylesheet** directory, so a child
   file named `assets/css/app.css` would replace the parent's canvas stylesheet.
   Never use `app.css` or `main.js` as a child output name; the sample's
@@ -426,8 +442,9 @@ empty inserter. Check that each `block.json` is readable, that the bundle and it
 
 - `version: 3` is what both sources ship. Treat the declared WordPress minimum as
   a declaration until checked (quality gate 7).
-- Extend the parent palette/fonts; do not replace inherited slugs that existing
-  content references. Parent palette slugs are `base`, `contrast`, `primary`,
+- Extend the parent palette/fonts **additively**: do not rename or re-point an
+  inherited slug that existing content references, and read the replacement rule
+  below before declaring a preset array at all. Parent palette slugs are `base`, `contrast`, `primary`,
   `paragraph`, `secondary`, `surface`, `transparent`; font slugs include `sans`,
   `mono`, `hanken-grotesk`, `josefin-sans`, `noto-serif-display`,
   `jetbrains-mono`. **[parent contract]**
@@ -441,6 +458,21 @@ empty inserter. Check that each `block.json` is readable, that the bundle and it
   while shipping files for none of the first six. **[observed defect]** For new
   work, declare only names that are both non-core and have a file in the child's
   own `templates/` directory.
+
+- **Declaring a preset array replaces the parent's array; it does not extend it.**
+  `settings.color.palette`, `settings.typography.fontFamilies`,
+  `settings.typography.fontSizes`, `settings.spacing.spacingSizes` and
+  `settings.color.gradients` are sequential arrays, and core's theme.json merge
+  replaces sequential arrays by numeric index
+  (`wp-includes/class-wp-theme-json.php`). A child that declares
+  `settings.color.palette` with one new slug therefore drops **all seven** inherited
+  colours, and a child that declares `fontFamilies` drops all six inherited families
+  and every preset, role and variation that resolves through them. So: list every
+  inherited entry the child still needs in its own file, or omit the key entirely to
+  leave the parent's list untouched — and assert the merged result (a
+  `wp_theme_json_data_theme`-driven test, or a REST `theme.json` fetch) instead of
+  assuming a merge. Never ship a child palette without checking that an inherited
+  block still resolves `var(--wp--preset--color--…)` and a role font.
 
 Colour roles, presets and the visitor switcher are owned by
 `../nextora-design-system/SKILL.md`; a child contributes preset data files, never

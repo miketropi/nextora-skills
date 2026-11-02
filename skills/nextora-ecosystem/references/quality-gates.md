@@ -82,6 +82,20 @@ Related: `source-map.md` (where these come from), `../nextora-ecosystem/SKILL.md
   strings and mark the script as translated (`wp_set_script_translations()`)
   when it carries translatable literals.
 - Pluralisation and count messages use `_n()`/`sprintf`, not string concatenation.
+- **In a block theme, separate code strings from starter content before applying
+  this gate.** Copy that ships as block markup in `templates/*.html` and pattern
+  bodies is content: core translates only a pattern's `title`/`description` header
+  fields (`wp-includes/block-patterns.php`) and nothing at all in template HTML, so
+  there is no mechanism that makes a block-theme template's literal copy
+  translatable — and rewriting HTML templates into PHP to wrap them is not the fix.
+  Everything a **code path** emits is a code string and is covered in full: PHP
+  output, editor-script and view-script literals, localized data objects, REST
+  payload text, labels created in JavaScript. If a project needs translatable
+  starter content, say so explicitly and name how; never claim this gate is met for
+  copy that ships untranslated.
+- Pattern bodies are PHP, so `esc_html__()` belongs on chrome-like literals a
+  pattern must render (a button label, a caption) — not on page copy the owner is
+  expected to rewrite.
 
 ## 6. Accessibility and resilience
 
