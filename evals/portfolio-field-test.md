@@ -7,9 +7,10 @@ accepted by a third, with the coordinator (this author) owning scope, acceptance
 This is an **observational field test**, not a causal A/B experiment. The builder ran with its own global
 instructions and its own model; only the evidence below is claimed.
 
-Status: **complete**. Acceptance ran against candidate v6 (theme digest `33053e3c…`, 72 files) on a
-disposable WordPress Playground matrix; the matrix is §7, the skill verdicts §8 and the overall verdict
-§11. `$RUN` below is `/tmp/nextora-portfolio-field-test-20261102T150910Z`.
+Status: **complete**. Acceptance ran against candidate v6 (theme digest `33053e3c…`, 72 files), and the
+delivered tree was then extended to **v7** (`9f80cabe…`, 80 files) by a follow-up block-capability probe
+that added the theme's first child block and its registrar; the matrix is §7, the skill verdicts §8 and the
+overall verdict §11. `$RUN` below is `/tmp/nextora-portfolio-field-test-20261102T150910Z`.
 
 ## 1. What was frozen, and what ran
 
@@ -121,23 +122,33 @@ source cutover happened.
 | v2 | v1 + F1-F6 from the independent review | `evidence/candidate-2-theme.sha256`, 71 theme files, digest `045f5501…`; `evidence/candidate-2-all.sha256`, 78 files with QA harness |
 | v3 | v2 + the three delta-review items (chrome alignment, restored lede/footer measures with a measured specificity bump, corrected README variation passage) | `evidence/candidate-3-theme.sha256`, 71 theme files, digest `12dc272c…`; `evidence/candidate-3-all.sha256`, 78 files |
 | v4 | v3 + gate-5 (README UI-vs-REST clarification, `Tested up to: 7.1.4` with the proof named, About pattern `&` cleanup, contract test updated) | `evidence/candidate-4-theme.sha256`, 71 theme files, digest `aa6cfc14…` |
+| v6 | v4 + gate-6 (skip-link focus target, duplicate footer navigation removed, README variation passage corrected) | `evidence/candidate-6-theme.sha256`, 72 theme files, digest `33053e3c…` |
+| v7 | v6 + the block-capability probe's block (`test-skills/fact-list`), the child registrar, the block build script, and the review findings closed | `evidence/candidate-7-theme.sha256`, 80 theme files, digest `9f80cabe…`; `evidence/candidate-7-all.sha256` |
 
-Acceptance ran against **v4**, served live from the mounted target in the lead's pane and re-seeded under
-`evidence/instance-primary-final`. v1's browser results were invalidated rather than reported, because the
-F1 fix changes every page width; QA marked them under `evidence/V1-INVALIDATED.md`, and the v2 attempts
-under `evidence/V2-PARTIAL.md`. Lead-run verification at each freeze: `npm ci`, `npm run typecheck`,
-`npm run build`, `php -l` on every authored PHP file, plus `composer phpstan` / `php-cs-fixer` / `phpunit`
-where they exist. Raw output: `evidence/lead/build-verify.txt`, `build-verify-v2.txt`,
-`build-verify-v3.txt`, `build-verify-v4.txt`. The dashboard of lead-run browser observations is §7.
+The full browser matrix ran against **v6**, served live from the mounted target in the lead's pane and
+re-seeded under `evidence/instance-primary-final`; the block probe then added the theme's first block and
+was itself proven live on the same instance, giving **v7** as the delivered tree. v1's browser results were
+invalidated rather than reported, because the F1 fix changes every page width; QA marked them under
+`evidence/V1-INVALIDATED.md`, and the v2 attempts under `evidence/V2-PARTIAL.md`. Lead-run verification at
+each freeze: `npm ci`, `npm run typecheck`, `npm run build`, `php -l` on every authored PHP file, plus
+`composer phpstan` / `php-cs-fixer` / `phpunit` where they exist. Raw output:
+`evidence/lead/build-verify.txt`, `build-verify-v2.txt`, `build-verify-v3.txt`, `build-verify-v4.txt`,
+`build-verify-v7.txt`. The dashboard of lead-run browser observations is §7.
 
 ## 6. Build and ledger of what the delivered theme actually is
 
-- 71 theme files: `style.css` (header only), `theme.json` v3, `functions.php`, `inc/{bootstrap,assets,patterns,setup}`,
+- 80 theme files: `style.css` (header only), `theme.json` v3, `functions.php`, `inc/{bootstrap,assets,patterns,setup,template}`,
   `resources/css` + 6 modules, `resources/ts/main.ts`, 5 hand-authored SVG sources, 8 templates, 2 parts,
-  10 patterns, 5 WebP exports, `README.md`, `CHANGELOG.md`, real npm/Composer tooling.
-- No blocks, no registrar, no CPT, no taxonomy, no plugin, no second bundler, no Tailwind.
-- Build: `npm run build` = PostCSS + esbuild → `assets/css/test-skills.css`, `assets/js/test-skills.js`;
-  `build:images` is separate and guarded.
+  10 patterns, 5 WebP exports, **one child block** (`blocks/fact-list/`), the child block registrar
+  (`blocks/blocks.php`), `README.md`, `CHANGELOG.md`, real npm/Composer tooling.
+- Blocks: **one**, added after acceptance by the block-capability probe below — a dynamic, Gutenberg-native
+  block (`apiVersion: 3`, `save: () => null`, `render.php`), registered by a child registrar that reads the
+  stylesheet directory, skips an unreadable `block.json` and forces the `test-skills` category in PHP and
+  through the client-side coercion. No second React runtime: the child has no React dependency, so the
+  editor entry uses `createElement` and the build shims every `@wordpress/*` import onto `window.wp.*`.
+- Build: `npm run build` = PostCSS + esbuild (script) + `node scripts/build-blocks.mjs` →
+  `assets/css/test-skills.css`, `assets/js/test-skills.js`, `blocks/fact-list/{index.js,index.asset.php}`;
+  `build:images` stays separate and guarded.
 - Assets: style handle `test-skills-app` (deps `global-styles`, `nextora-app`, priority 25), script
   `test-skills-main` (dep `nextora-main`, priority 30, deferred), `wp_head` marker at priority 1, editor
   canvas through `add_editor_style()` only.
@@ -180,6 +191,9 @@ Lead-run browser observations on the live primary (independent of both workers):
 | Journeys (final) | Home → Work → Forma → About → Contact each render exactly one `<main>` and one `<h1>` with a working skip link and the three navigation links; unknown URL renders the 404 page with recovery links; `?s=Forma` and a no-match query both render a results surface |
 | About copy after the harness fix | "Motion & prototyping" and "Content strategy & editorial", zero `u0026` on the page |
 | Skip-link target (v6) | live markup carries `<main tabindex="-1" id="content">` |
+| Block registered (v7) | editor on the live instance lists 156 block types, including `test-skills/fact-list`, with the `test-skills` category present and no editor notice |
+| Block round trip (v7) | inserted into a fresh page, attributes edited, saved; reopening the editor parses the block back with `heading`, `layout: stacked`, `dividers: true` and both rows intact and **no invalid-block notice**; the published page renders `<dl class="test-skills-fact-list__facts has-dividers">` with `<dt>` labels, `<dd>` values, the `<h3>` heading and `data-layout="stacked"` |
+| Block build (v7) | `npm run build` builds the block too (`blocks/fact-list/index.js` 5,748 B + `index.asset.php` declaring the 14-handle list); the bundle contains zero `require("@wordpress…")` and reads only `window.wp.{blocks,blockEditor,components,element,i18n}` |
 
 Not exercised, with reasons, in `$RUN/qa-report.md`: applying and persisting a Site Editor variation and
 the Reset control; image replace/alt through the block toolbar; publishing the pattern draft; the team
@@ -197,7 +211,7 @@ Per skill, against the frozen baseline. Verdicts are the *observed* consequence 
 | `nextora-child-themes` | Useful, one misleading claim | the exact hook table (25 / 30 / `wp_head` 1 / `add_editor_style()` 20), the non-colliding basename rule, the version-constant order and the "nothing at child file scope may touch the parent" rule were all followed and all survived review. The claim that `add_editor_style()` delivers parity is too strong (S5). |
 | `nextora-design-system` | Useful, one missing trap | the mechanism table, the `:root` role-default contract, the data-not-code rule for the switcher and the gate description produced a child whose visitor path works on first measurement and whose compiled CSS holds **zero** literal colours. It does not state that preset data files under `styles/**` are also registered as Site Editor variations (S4), nor that declaring `settings.color.palette` replaces the parent's array (S2, in the child skill). |
 | `nextora-site-composition` | Useful and incomplete | the part-ownership rule, the pattern-header rules, the `inherit:true` query rule and the "one authority" rule were all applied correctly. The recipe only covers the theme-owned-layout model, so the brief's editability requirement had no documented answer and the builder invented a CPT (S1). |
-| `nextora-gutenberg-blocks` | Useful, narrowly exercised | the inherited-block semantics it documents (ID-keyed members, immediate `patchMember`, one modal, no rollback, minimum one) matched the real block and kept the child from inventing a rollback contract or a team-block clone. No block was built, so its build/registrar guidance is **not exercised** (§9). |
+| `nextora-gutenberg-blocks` | Useful, with three misses only a real build exposed | the inherited-block semantics it documents (ID-keyed members, immediate `patchMember`, one modal, no rollback, minimum one) matched the real block and kept the child from inventing a rollback contract or a team-block clone. A separate time-boxed probe then built the theme's first **new** block against the frozen skill (§8.1): the contracts that carry the most risk landed correctly on the first attempt — `apiVersion: 3` metadata, dynamic `save: () => null` with `render.php`, escaping by context with the child textdomain, a registrar that reads the stylesheet directory, and the `window.wp` handle trap (zero unshimmed `require`, only the five globals its bundle needs, all inside the contract's 14-handle list). What it missed: the skill's "state the reuse decision" requirement was skipped, the editor's list mutations were announced to nothing (no live region), and the block build was not wired into the theme's own `npm run build`, so a clean build left `block.json` pointing at a missing file. |
 | `references/quality-gates.md` §5 | Partially unusable as written | the i18n gate cannot be satisfied by a block theme's template/pattern copy and names no mechanism; it produced one medium review finding and a lead ruling (S3). |
 
 ### Skill defects corrected
@@ -229,7 +243,20 @@ Also recorded from the review, not patched as skill text: the child's handling o
 gate 7 exactly — left absent until the primary matrix proved 7.1.4, then set to it with the proof named in
 the README, and never copied from the parent's unproven `7.0`.
 
-### Rerun after correction
+### 8.1 Block-capability probe (the one path the project itself never touched)
+
+The delivery shipped no block, so the skill's authoring path was untested by it. After acceptance, a
+time-boxed probe (two Herdr agents: one builder, one reviewer, both started from the frozen skill) built
+`test-skills/fact-list` — a dynamic case-study "facts" strip — in a throwaway clone, then moved it into the
+delivered theme with the review findings closed.
+
+| Item | Result |
+| --- | --- |
+| Reviewer verdicts on the first pass | 6 pass (metadata, `save`, `window.wp` handles, `render.php`, registrar, styles), 2 partial (no live region for list mutations; `build:blocks` missing from `npm run build`), 1 fail (reuse decision never stated; `core/table` never addressed) |
+| Lead verification (independent) | built artefacts present and regenerable, `index.asset.php` declares the contract's 14 handles, bundle has zero `require("@wordpress…")`, registrar uses the stylesheet directory and skips unreadable metadata |
+| Runtime proof on the live instance | block registered in the editor (156 block types), inserted, saved, **reloaded with attributes intact and no invalid-block notice**, and the published page rendered `<dl>`/`<dt>`/`<dd>` with `has-dividers` and `data-layout="stacked"` |
+| After the fixes | reuse decision stated (README + the editor entry's docblock, naming `core/table`'s read-back row model and `nextora/advanced-list`'s lack of label/value pairing as the reasons nothing existing fit), an unconditional `role="status"` `aria-live="polite"` region with five translated messages, and `build:blocks` inside `npm run build` with README/CHANGELOG parity |
+| Cost, and what that says about the skill | the probe needed **~9 minutes** for one small block, because the skill requires reading `SKILL.md` plus two references (~680 lines) before writing, and the child had no block infrastructure at all — the registrar and the esbuild pipeline had to be created as well. The three misses above are the skill's own gaps, not the agent's invention, and all three are cheap to state in the contract. |
 
 A fresh read-only agent (`skill-rerun`, `w3:p9`) was given the **same** architecture question the original
 builder answered with a CPT, pointed at the **patched** suite. It chose hierarchical Pages + `core/query`
@@ -241,10 +268,13 @@ delivered theme is still the one produced under the frozen skills and corrected 
 
 ## 9. Not exercised / limitations
 
-- **Not exercised in this project:** new child block authoring, block registrar and `build:blocks`, the
-  child repeater (`resources/ts/editor/repeater.tsx`) draft semantics, Duplicate and Done/Cancel on
-  `team-section` (the block has neither — correctly marked not applicable), WCAG assistive-technology
-  passes, subdirectory installs, multisite, and any WordPress version outside the two matrix cells.
+- **Not exercised in this project:** the child repeater's draft/Done/Cancel model
+  (`resources/ts/editor/repeater.tsx`) — the new block uses canvas-native `RichText` rows with immediate
+  patching instead, so the component and its Add/Duplicate-before-open semantics remain unproven here;
+  Duplicate and Done/Cancel on `team-section` (the block has neither — correctly marked not applicable);
+  WCAG assistive-technology passes; subdirectory installs; multisite; and any WordPress version outside the
+  two matrix cells. Block authoring, the block registrar and `build:blocks` were exercised after acceptance
+  by the probe in §8.1, on the frozen skill, not during the graded matrix.
 - **Required checks still unexercised at handover** (from `$RUN/qa-report.md`, each with its reason):
   applying and persisting a Site Editor variation and the Reset control; image replace/alt through the
   block toolbar; publishing a draft built from the section pattern; the team block's empty state *inside*
@@ -287,9 +317,10 @@ mere decoration:
   surfaced because a real delivery stress-tested them (S2-S5), and one harness-side failure was misdiagnosed
   by the lead first and needed the registry content read to settle (S6).
 - **Numbers.** 10 leader interventions, 8 of them builder-affecting; 6 skill defects corrected (S1-S6),
-  one of which surfaced through a harness bug the lead first misdiagnosed as a theme defect; 4 candidate
-  revisions from independent review (v1→v6, each reviewed and re-measured); the matrix rows and assertion
-  runs in §7 are the verification count that matters — the screenshots and logs behind them are not.
+  one of which surfaced through a harness bug the lead first misdiagnosed as a theme defect; 7 candidate
+  revisions (v1→v7), each independently reviewed or measured — v1→v6 by the review loop, v7 by the
+  out-of-band block probe; the matrix rows, assertion runs and the block round trip in §7 are the
+  verification count that matters — the screenshots and logs behind them are not.
 - **What is not claimed.** No causal comparison against a no-skills run, no claim that the corrected skills
   would have prevented every correction, no claim of compatibility outside the two matrix cells, and no
   claim that the delivered theme is production-ready: it is a disposable-instance-verified child theme with
