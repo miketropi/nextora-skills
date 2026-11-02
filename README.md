@@ -23,7 +23,8 @@ manager and no installer.
 ```text
 README.md
 evals/
-  scenarios.md
+  scenarios.md                       # prompt corpus for judging agent answers
+  portfolio-field-test.md            # record of one real delivery against a frozen copy
 skills/
   nextora-ecosystem/
     SKILL.md                          # router: resolve, dispatch, shared gates
