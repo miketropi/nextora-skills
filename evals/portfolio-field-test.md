@@ -8,9 +8,9 @@ This is an **observational field test**, not a causal A/B experiment. The builde
 instructions and its own model; only the evidence below is claimed.
 
 Status: **complete**. Acceptance ran against candidate v6 (theme digest `33053e3c…`, 72 files), and the
-delivered tree was then extended to **v7** (`9f80cabe…`, 80 files) by a follow-up block-capability probe
-that added the theme's first child block and its registrar; the matrix is §7, the skill verdicts §8 and the
-overall verdict §11. `$RUN` below is `/tmp/nextora-portfolio-field-test-20261102T150910Z`.
+delivered tree was then extended to **v8** (`884047aa…`, 80 files) by a follow-up block-capability probe
+that added the theme's first child block and its registrar, and by the fix for the invisible row controls a
+user found in the editor; the matrix is §7, the skill verdicts §8 and the overall verdict §11. `$RUN` below is `/tmp/nextora-portfolio-field-test-20261102T150910Z`.
 
 ## 1. What was frozen, and what ran
 
@@ -124,6 +124,7 @@ source cutover happened.
 | v4 | v3 + gate-5 (README UI-vs-REST clarification, `Tested up to: 7.1.4` with the proof named, About pattern `&` cleanup, contract test updated) | `evidence/candidate-4-theme.sha256`, 71 theme files, digest `aa6cfc14…` |
 | v6 | v4 + gate-6 (skip-link focus target, duplicate footer navigation removed, README variation passage corrected) | `evidence/candidate-6-theme.sha256`, 72 theme files, digest `33053e3c…` |
 | v7 | v6 + the block-capability probe's block (`test-skills/fact-list`), the child registrar, the block build script, and the review findings closed | `evidence/candidate-7-theme.sha256`, 80 theme files, digest `9f80cabe…`; `evidence/candidate-7-all.sha256` |
+| v8 | v7 + the fix for the defect the user found: per-action labels, dashicons available in the editor canvas, a visible `Remove` word, unchanged gates | `evidence/candidate-8-theme.sha256`, 80 theme files, digest `884047aa…` |
 
 The full browser matrix ran against **v6**, served live from the mounted target in the lead's pane and
 re-seeded under `evidence/instance-primary-final`; the block probe then added the theme's first block and
@@ -226,6 +227,8 @@ Each had an exact baseline quote and a concrete consequence:
 | S4 | `presets-and-switching.md` §6: `styles/font-preset/<name>.json` described as switcher data only. | Core registers **every** JSON under `styles/**` as a Site Editor variation, so preset data also lands in the persistent list — an unavoidable side effect that was undocumented and caused a review disagreement. | Added the side-effect note with the resolver source, "give every file a distinct title", keep the allowlists tight, and "do not invent a second directory layout just to hide a variation". |
 | S5 | `child-contract.md` §6: parity asserted from `add_editor_style()` alone. | Core prints editor styles ahead of the `global-styles` inline block, so a child rule at equal specificity won on the front end and lost in the canvas (measured 720px vs 540.96px) — the child did exactly what the skill said and still failed the gate. | Added "necessary but not sufficient": name the competing rule and its weight (0-2-0 for core's editor root-children rule), the smallest bump that measures equal in both (an element-qualified class pair, 0-2-1), and that neither `!important` nor deleting the measure is the remedy. |
 | S6 | `templates-and-patterns.md` §5.1 (new) / §4: nothing said about writing a pattern's registered content into a page from code. | The project's demo setup inserted a registered pattern with `wp_insert_post( array( 'post_content' => $pattern_content ) )`. Core registers a pattern through `serialize_block_attributes()`, which encodes `&` as `\u0026`; `wp_insert_post()` unslashes, so the backslash was stripped and `/about/` rendered "Motion u0026 prototyping" for three candidate rounds. The lead first misclassified this as a theme defect and asked for a pattern edit that fixed nothing; QA's fixture was the actual cause. | Added a paragraph to §5.1: read the content from the registry and `wp_slash()` it before storing, the same for later content patches, and verify by reading the stored content back and rendering the page. |
+| S7 | `block-contract.md` §8's editor contract covered native fields, panels and preview stacks, but never said an affordance has to **render**, and never mentioned glyph availability or per-control labels. | The user reported "add works, no remove" on the delivered block. The controls existed and `removeFact` was wired, yet every icon-only control rendered 24×24 with no glyph because the canvas iframe has no `dashicons` stylesheet, and move-up/move-down/remove shared one `aria-label`. Both agents had passed the UI, because one had no runtime and the lead checked DOM presence instead of the rendered glyph. | Added a bullet: icon-only controls must not depend on a font that may not be loaded in the canvas (enqueue core `dashicons` when using glyph strings; `@wordpress/icons` is not in the fixed handle list), every control needs its own action-specific label plus `showTooltip`, destructive actions survive a font failure, and verification measures the rendered control in the real canvas rather than finding it in the DOM. |
+| S8 | `block-contract.md` §6 documented the block build but not the theme's **aggregate** build; `SKILL.md` §3 required the reuse decision without saying where it has to live. | The first probe's `block.json` pointed at an `index.js` that `npm run build` did not produce — green in a working tree, broken in a clean checkout — and the reuse decision existed only in the agent's report, so the reviewer had to mark its absence a `fail` even though the agent had reasoned about it. | §6 gained the wiring rule (`build:blocks` in the `build` chain, and check the built files are the ones `block.json` names); §3 now says the decision belongs in the deliverable — the editor entry's docblock plus a README line naming the rejected candidates. |
 
 ### Parent defects found (reported, never fixed)
 
@@ -253,6 +256,8 @@ delivered theme with the review findings closed.
 | Item | Result |
 | --- | --- |
 | Reviewer verdicts on the first pass | 6 pass (metadata, `save`, `window.wp` handles, `render.php`, registrar, styles), 2 partial (no live region for list mutations; `build:blocks` missing from `npm run build`), 1 fail (reuse decision never stated; `core/table` never addressed) |
+| **Defect the *user* found after both agents passed it** | "add more items works, there is no remove". Measured in the live canvas: the controls were in the DOM and `removeFact` was wired, but every icon-only control rendered **24×24 with no glyph** — the dashicons stylesheet is absent from the editor canvas, so all four buttons per row were invisible, and move-up, move-down and remove shared the single `aria-label` "Fact 1 actions", so tooltips and assistive technology could not tell them apart either. Neither the reviewer (no runtime) nor the lead's earlier check (DOM presence, not rendered glyph) caught it; the person using the block did, in one look. |
+| Fix and its proof | per-action translated labels with tooltips, core `dashicons` enqueued for the editor canvas, and a visible `Remove` word so the destructive action survives a font failure. Verified live in the real canvas: `dashiconsInCanvas: true`, each glyph span computes `font-family: dashicons` with a non-empty `::before`, labels distinct (`Link fact 1`, `Move fact 1 up`, `Move fact 1 down`, `Remove fact 1`), remove now 89×24 with the visible word; clicking it took the row count 2 → 1, announced "Fact 1 removed. At least one fact is required." through the `role="status"` region, disabled itself at the minimum, and `Add fact` restored the row |
 | Lead verification (independent) | built artefacts present and regenerable, `index.asset.php` declares the contract's 14 handles, bundle has zero `require("@wordpress…")`, registrar uses the stylesheet directory and skips unreadable metadata |
 | Runtime proof on the live instance | block registered in the editor (156 block types), inserted, saved, **reloaded with attributes intact and no invalid-block notice**, and the published page rendered `<dl>`/`<dt>`/`<dd>` with `has-dividers` and `data-layout="stacked"` |
 | After the fixes | reuse decision stated (README + the editor entry's docblock, naming `core/table`'s read-back row model and `nextora/advanced-list`'s lack of label/value pairing as the reasons nothing existing fit), an unconditional `role="status"` `aria-live="polite"` region with five translated messages, and `build:blocks` inside `npm run build` with README/CHANGELOG parity |
@@ -316,11 +321,14 @@ mere decoration:
   type with a theme-switch data-loss risk (S1) and needed the lead to overrule it. Four further gaps only
   surfaced because a real delivery stress-tested them (S2-S5), and one harness-side failure was misdiagnosed
   by the lead first and needed the registry content read to settle (S6).
-- **Numbers.** 10 leader interventions, 8 of them builder-affecting; 6 skill defects corrected (S1-S6),
-  one of which surfaced through a harness bug the lead first misdiagnosed as a theme defect; 7 candidate
-  revisions (v1→v7), each independently reviewed or measured — v1→v6 by the review loop, v7 by the
-  out-of-band block probe; the matrix rows, assertion runs and the block round trip in §7 are the
-  verification count that matters — the screenshots and logs behind them are not.
+- **Numbers.** 10 leader interventions, 8 of them builder-affecting; **8 skill defects** corrected
+  (S1-S8), one of which surfaced through a harness bug the lead first misdiagnosed as a theme defect, and
+  two of which only an out-of-band probe could reach; 8 candidate revisions (v1→v8); the matrix rows,
+  assertion runs and the block round trip in §7 are the verification count that matters — the screenshots
+  and logs behind them are not.
+- **The most useful signal in the whole run came from a person, not a check.** The invisible row controls
+  survived an independent source review, a live runtime probe and the lead's own browser pass, and were
+  obvious in one look to the user. A rendered-affordance check now belongs in the loop before "pass".
 - **What is not claimed.** No causal comparison against a no-skills run, no claim that the corrected skills
   would have prevented every correction, no claim of compatibility outside the two matrix cells, and no
   claim that the delivered theme is production-ready: it is a disposable-instance-verified child theme with
