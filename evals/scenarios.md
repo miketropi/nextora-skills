@@ -12,18 +12,37 @@ the downstream acceptance recipes in
 
 ## How to run
 
-Run each scenario in a **fresh** shell pane from this repository root, with the
-skill file supplied explicitly and tools restricted so the run cannot write:
+A scenario is one prompt against one entrypoint. Any client works — the
+expectations below are about the answer, not about the command that produced it.
+
+Requirements:
+
+1. **One skill per run.** Load exactly one `SKILL.md` and stop the client from
+   auto-discovering the other four, or a passing answer may come from the wrong
+   file.
+2. **A fresh context per scenario.** No carry-over between runs.
+3. **Read-only.** Read/glob/grep-class tools only. A scenario that writes files
+   has failed.
+4. **No delegation.** The answer must come from the agent that read the skill, not
+   from a subagent that never saw it.
+
+Reference invocation — the client used while authoring this suite:
 
 ```bash
 omp -p --no-session --no-skills --tools read,glob,grep \
   @skills/<skill-name>/SKILL.md "<prompt>"
 ```
 
-`--no-skills` keeps the agent from picking up unrelated skills; `--tools
-read,glob,grep` makes the run read-only. Every prompt must be prefixed with the
-two roots so the agent can actually read the sources — never write "the source
-roots supplied in this plan" without pasting them:
+`--no-skills` blocks unrelated skill discovery, `--tools read,glob,grep` makes the
+run read-only, and `--no-session` keeps it out of history. Equivalents elsewhere:
+install just the one skill with
+`npx skills add miketropi/nextora-skills -s <skill-name>`, or paste that
+`SKILL.md` into a fresh conversation. Run each scenario in its own fresh session
+or pane, and let it finish before you judge it.
+
+Every prompt must be prefixed with both roots so the agent can actually read the
+sources — never write "the source roots supplied in this plan" without pasting
+them:
 
 ```text
 Source roots (read-only; do not modify):
@@ -34,11 +53,11 @@ Load the skill's referenced Markdown files by their relative paths.
 
 Rules for the runner:
 
-- Wait for the command to finish before reading the pane; a submitted command is
-  not a completed run.
-- Do not reuse a pane that is still working.
-- Do not answer an approval dialog on the agent's behalf.
-- The source themes are read-only. A scenario that edits them has failed.
+- Wait for the run to finish before judging; a submitted prompt is not a completed
+  run.
+- Never reuse a session that is still working.
+- Do not answer an approval or question dialog on the agent's behalf.
+- Do not edit the source themes; a scenario that does has failed.
 
 ## Scenarios
 
