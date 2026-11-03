@@ -1,6 +1,6 @@
 # Evaluation scenarios
 
-An instruction-suite evaluation corpus: seven prompts, the source fixtures each
+An instruction-suite evaluation corpus: nine prompts, the source fixtures each
 one depends on, the observable result it must produce, and the conditions that
 count as failure. It is not a WordPress fixture application and not an automated
 scoring framework — a person or an agent runs a prompt and inspects the answer.
@@ -336,6 +336,125 @@ child `resources/css/modules/00-tokens.css`.
 - Claiming a malformed preset file is fatal or that it silently changes a palette.
 - Claiming WordPress 6.4 compatibility is proven by the header.
 - Inventing a new fallback or reset policy for the switcher.
+
+### 8. Contrast pairs on a dark or image-backed section — `skills/nextora-design-system/SKILL.md`
+
+**Prompt**
+
+> We are building a section block for a child theme: a full-width band whose author can put a
+> photograph behind its copy and make the band dark. It needs separate controls for the heading
+> text colour, the body text colour and the band's background, and it has to stay readable when
+> the background is a dark preset or an image sitting under an overlay. Output: the attribute
+> schema, the inspector controls you would expose, the resolve/render path for each colour, and
+> the CSS roles the block consumes. Say how the block decides a readable default when a colour
+> control is left empty, how the three controls behave when the author changes the background
+> after setting a foreground, and how you would establish that the rendered result is actually
+> readable. Do not write files.
+
+**Source fixtures** — parent `theme.json` (`settings.color.palette`, `styles.color`,
+`styles.elements`), `styles/color-scheme/midnight.json`, `resources/css/app.css`,
+`blocks/page-title/{block.json,render.php}`,
+`blocks/call-to-action/{block.json,render.php}`,
+`blocks/advanced-icon/{color-utils.ts,lucide.php}`, `blocks/team-section/render.php`; child
+`theme.json`, `resources/css/modules/00-tokens.css`, `blocks/page-hero/{block.json,render.php}`.
+Baseline answer recorded in `../evals/portfolio-field-test.md` §12.
+
+**Expected artefact / behaviour**
+
+- **Three separate attributes**, each defaulting to `''` — heading, content and background — plus
+  overlay attributes for the image case. Not one "text colour".
+- **Empty means "derive the theme default"**, and the derivation picks between the candidate
+  foregrounds the theme already supplies *by contrast ratio*, rather than testing a hardcoded
+  lightness threshold or inventing a colour, so a palette change or style variation re-derives.
+- **The derivation reads the surface the block actually paints.** A section with no background
+  colour and no media layer paints nothing, so it must derive nothing and emit nothing rather than
+  compositing a scrim over a stand-in grey and concluding "white text".
+- **A derived value is never persisted** into an attribute.
+- **An explicit foreground is never silently overwritten** when the background changes; a failing
+  explicit pair is surfaced with its measured ratio and an explicit, undoable remedy.
+- **Thresholds are stated and are WCAG 2.2 AA**: 4.5:1 normal text, 3:1 large text and non-text UI
+  (focus rings, controls).
+- **Links, buttons and focus rings are treated as foregrounds on the same surface** and checked,
+  not only headings and body copy.
+- **A photograph is not treated as a colour**: an overlay is required, the pair is measured against
+  the composited surface, and the answer says the overlay is the mechanism — without claiming it
+  proves readability that was never measured.
+- **Verification is on computed styles** in the browser (`color` plus the effective background,
+  walking to the nearest opaque ancestor), at least in the default and one dark/alternative scheme,
+  plus a save → reload → re-save with no validation warning.
+- Contrast values follow the palette: preset-backed foregrounds move with a palette/variation
+  change, custom literals do not.
+- Scoped colours follow the §3 storage rules (slug for a preset match, literal for partial alpha,
+  8-digit hex handled before `sanitize_hex_color()`), and the block resolves through a **single**
+  helper shared by the editor and `render.php` — not by calling a parent block's internal resolver
+  and not by writing two implementations.
+
+**Failure conditions**
+
+- One "text colour" control covering both headings and body copy.
+- A hardcoded light colour or a fixed literal as the derived dark-section foreground (it renders
+  dark-on-dark as soon as a dark scheme or style variation is active).
+- A derived tone or a computed ratio written back into a persisted attribute.
+- Changing the background rewriting, or silently correcting, a heading or content value the author
+  set.
+- No threshold stated, or a threshold other than 4.5:1 / 3:1, or the threshold applied only to body
+  copy and not to focus rings or control boundaries.
+- A background image with no overlay control, or a claim that the overlay guarantees readability
+  with no measurement of the composited surface.
+- A foreground derived for a section that paints no surface of its own (the phantom-surface case
+  above), which is how white-on-white is produced.
+- Verification offered only as "the custom property is present", or only in the editor canvas.
+- Resolving colours by calling `nextora_ac_resolve_color()` / `nextora_icon_resolve_color()` / any
+  other parent *block* helper from child code, or duplicating the derivation in PHP and JS.
+
+### 9. Adjacent section rhythm — `skills/nextora-site-composition/SKILL.md`
+
+**Prompt**
+
+> Compose the front page of a child theme: five stacked sections, each owned by a theme pattern,
+> opening with a full-width hero and closing with a call to action. Adjacent sections must neither
+> run into each other nor leave an accidental gap, and every section needs its own vertical
+> breathing room as well as spacing between its own heading, its prose and its cards. Output: the
+> pattern headers and the serialized block markup for two adjacent sections, for each spacing
+> decision say which mechanism owns it and why the others cannot, and list exactly what you would
+> measure on the rendered page to prove the spacing is right. Do not write files.
+
+**Source fixtures** — parent `templates/front-page.html`, `templates/archive.html`,
+`patterns/{impact-statistics,our-core-values,contact-form,banner-with-text-button,arc-gallery-section}.php`,
+`theme.json` (`settings.spacing.spacingSizes`, `styles.spacing.blockGap`), `parts/`; child
+`theme.json`, `patterns/`.
+
+**Expected artefact / behaviour**
+
+- **Each section names its spacing owner** and the answer distinguishes three: wrapper
+  margin/padding (core `supports.spacing`), the section's own vertical rhythm (padding on the
+  section block), and the internal heading/prose/card gap (`blockGap` or the block's own gap
+  attribute).
+- **Rhythm is authored as preset identity** — `var:preset|spacing|<slug>` — not a copied length, so
+  a change to the spacing scale reaches it. The parent's own patterns do this.
+- **Wrapper margins are neutralised** (`style.spacing.margin` top/bottom `0`) and no boundary
+  depends on margins collapsing.
+- **The first and last sections are treated as boundaries**, not only the interior pairs.
+- Spacing ownership is described as a per-measurement decision, not "the theme's blockGap handles
+  it".
+- The verification list reads **computed** values: previous section's bottom padding and next
+  section's top padding both non-zero, pair does not touch, no accidental outer margin on the
+  first/last section, internal gap matches its control, clearing a control restores the theme value
+  with no empty inline declaration — and the measurements are taken at a narrow **and** a wide
+  width.
+- Pattern headers are correct (`Title`, unique `Slug: <child-slug>/<slug>`, `Categories`,
+  `Description`), the markup parses, and whole-page compositions keep one authority.
+
+**Failure conditions**
+
+- A section that relies on the theme's root `blockGap` or on a collapsed margin for its rhythm.
+- Every spacing decision attributed to one mechanism ("core spacing supports" for wrapper, section
+  rhythm and internal gap alike).
+- Rhythm expressed as literal lengths that cannot follow the spacing scale.
+- Verification stated as "it looks right", a screenshot, or markup inspection with no computed
+  measurement, or at one width only.
+- Interior boundaries checked but the first section's top and the last section's bottom ignored.
+- Duplicating the section list into both a template and a pattern.
 
 ## What these scenarios do and do not prove
 
