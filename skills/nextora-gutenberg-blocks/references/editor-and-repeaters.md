@@ -17,7 +17,7 @@ imports it and no `block.json` declares the `sectionBg`/`sectionHeading`/
 `sectionText` attributes it drives. Treat it as unused sample code, **not** as a
 pattern to copy.
 
-Related: `block-contract.md`, `../nextora-ecosystem/references/quality-gates.md`.
+Related: `block-contract.md`, `../../nextora-ecosystem/references/quality-gates.md`.
 
 ## 1. Parent `team-section`: stable IDs, every keystroke persists
 

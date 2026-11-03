@@ -148,6 +148,18 @@ Requirements for new patterns:
 - The body after the header is the serialized block markup. It must parse, use
   only registered blocks (`nextora/*`, the child's own `<child-slug>/*`, and core
   blocks), and stay editable after insertion.
+- **Declare the section's vertical rhythm in the pattern, and say which mechanism owns it.** A
+  section pattern is where the rhythm is authored, so an omission here is invisible until the
+  sections are stacked. The convention the live parent already follows is: neutralise the wrapper
+  margins (`style.spacing.margin` `top` and `bottom` of `0`) and own the rhythm with
+  `style.spacing.padding`, stored as preset identity (`var:preset|spacing|<slug>`) so a change to
+  the spacing scale reaches it — see `patterns/impact-statistics.php`,
+  `patterns/our-core-values.php`, `patterns/contact-form.php` and `templates/front-page.html` in
+  the parent. **[parent contract, by observation]**
+- **Never build a rhythm out of collapsing margins.** Two adjacent sections whose spacing comes
+  from margins have a boundary that cannot be seen in the inspector, cannot be measured per
+  section, and disappears entirely inside a flex or grid parent. Padding on both sides is the rule;
+  the boundary is then two non-zero measurements, which is what the acceptance step below reads.
 
 ### 4.3 Pattern categories
 
@@ -200,6 +212,22 @@ authority: a hidden filesystem pattern, referenced from a thin template.
 of storing a copy of the markup, so editing the pattern file is the single edit.
 The slug must match the pattern's `Slug:` header exactly.
 
+**A thin template still has to provide the page's landmarks.** Moving the section list into a hidden
+pattern removes the markup from the template — including, if you are not careful, the `<main>`
+landmark, because a pattern of sections is not a page. Wrap the reference in the template:
+
+```html
+<!-- wp:group {"tagName":"main","anchor":"content","className":"<child-slug>-scope","layout":{"type":"default"}} -->
+<!-- wp:pattern {"slug":"nextfolio/page-landing"} /-->
+<!-- /wp:group -->
+```
+
+Keep the landmark in the **template**, not in the pattern: the template owns page chrome and the
+pattern owns the section list, so a second template that ever references the same pattern does not
+inherit a duplicate `<main>`. Then assert it — exactly one `<main>` and exactly one `<h1>` on every
+route — because a theme whose ordinary templates carry the landmark while its front page does not is
+the failure this rule exists to prevent. **[new-output requirement, verified 2026-11-03]**
+
 ### 5.1 The second whole-page model — editable page content
 
 A whole-page composition serves one of two needs, and they are different models,
@@ -237,6 +265,38 @@ the round trip.
 Choose the model from what the brief says the *owner* must be able to change. A
 brief that asks for page content a non-developer edits is asking for the second
 model, and no pattern-reference recipe satisfies it.
+
+### 5.2 Section boundaries are part of the composition
+
+A page composed of sections has a rhythm that belongs to the *sequence*, not to any one section,
+and this suite previously said nothing about it. Three rules make it checkable:
+
+1. **Every section names its spacing owner.** Wrapper margin/padding is core block supports; a
+   section's vertical rhythm is its own padding; the space between the section's own heading, prose
+   and cards is a `blockGap`/gap attribute. One owner per measurement — the ownership table is
+   `../../nextora-design-system/references/presets-and-switching.md` §3.2.
+2. **Adjacency is authored, not incidental.** Two rules that both "look fine" apart can touch when
+   stacked, and no per-section check can see it.
+3. **The first and last sections are boundaries too.** A section that pads its top because it
+   *used* to follow another section leaves unwanted space above the header when it becomes the
+   first section.
+
+Which is why the acceptance step reads measurements rather than eyeballing the page:
+
+| Boundary | What to read (computed) | Passes when |
+| --- | --- | --- |
+| Header → first section | the section's own top padding | non-zero and what the pattern authored; no extra outer margin |
+| Section → section, every pair | previous section's bottom padding **and** next section's top padding | both non-zero and matching the authored presets; the pair does not touch |
+| Last section → footer | the section's own bottom padding | non-zero, and no accidental outer margin after it |
+| Inside a section | the heading/prose/card gap | matches the control, and clearing the control restores the theme value with no empty inline declaration |
+
+Repeat at a narrow and a wide width. A `clamp()`-based preset whose lower bound collapses is a real
+rhythm defect at the narrow end, and the wide end is where an over-large preset reveals itself.
+Both are invisible in a single-width screenshot.
+
+Conventional layout templates solve this with padding on a single element and no margins; a block
+theme's equivalent is the section block owning it, which is why a *core* group used as a section
+needs its spacing set explicitly in the pattern rather than left to the theme's root `blockGap`.
 
 Observed today, and not to be copied into new work: **[observed defect]**
 
@@ -412,7 +472,10 @@ parent and the target child activated, the child's dependencies installed as its
    confirm every template referencing it changed — then confirm a *template* file
    edit that shows no change is explained by a database customisation.
 5. Confirm no remote demo media appears on the front end.
-6. Check the requested minimum WordPress version **and** the current supported
+6. **Read every section boundary on computed styles** — header→first, each adjacent pair, and
+   last→footer — at a narrow and a wide width, using the table in §5.2. Clearing a spacing control
+   must restore the theme default and leave no empty inline declaration.
+7. Check the requested minimum WordPress version **and** the current supported
    release before claiming compatibility. Both source themes declare 6.4 / PHP
    8.1 while shipping `theme.json` v3 — a declaration, not proof.
 

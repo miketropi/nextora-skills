@@ -13,9 +13,9 @@ Reread the local sources before editing: `blocks/blocks.php`, the closest existi
 block folder, `scripts/build-blocks.mjs`, `package.json`, and the target
 `theme.json`. Runtime metadata outranks documentation.
 
-Related: `../nextora-ecosystem/references/source-map.md` (anchors),
-`../nextora-ecosystem/references/quality-gates.md` (gates and acceptance recipes),
-`editor-and-repeaters.md` (list editing), `../nextora-design-system/SKILL.md` (appearance).
+Related: `../../nextora-ecosystem/references/source-map.md` (anchors),
+`../../nextora-ecosystem/references/quality-gates.md` (gates and acceptance recipes),
+`editor-and-repeaters.md` (list editing), `../../nextora-design-system/SKILL.md` (appearance).
 
 ## 1. Resolve the target before writing anything
 
@@ -24,7 +24,7 @@ Related: `../nextora-ecosystem/references/source-map.md` (anchors),
 | Parent or child block? | Parent registrar scans `get_template_directory() . '/blocks'`; the child registrar scans `get_stylesheet_directory() . '/blocks'`. A child block is invisible until the child registers it. |
 | Existing block to extend? | `blocks/*/block.json` — names, categories, `supports`. Prefer changing the closest existing block over adding a near-duplicate. |
 | Which namespace? | Parent `nextora/<slug>`, text domain `nextora`. Child `<child-slug>/<slug>`, text domain `<child-slug>`. |
-| Is appearance in scope? | Then load `../nextora-design-system/SKILL.md`; block appearance is owned there. |
+| Is appearance in scope? | Then load `../../nextora-design-system/SKILL.md`; block appearance is owned there. |
 
 ## 2. The block folder
 
@@ -96,9 +96,44 @@ Real keys from `blocks/team-section/block.json` and the child manifests:
   `theme` for chrome blocks is contradicted by the code. **[observed defect]**
 - **Attributes are typed and defaulted in metadata.** Array attributes with real
   defaults (members) keep the editor renderable before any author input.
+- **`textdomain` in `block.json` is not readable back off the registered block type.** Core uses it
+  for i18n-schema translation of the metadata fields and for the asset's script translations
+  (`wp-includes/blocks.php:598,604-606`, `:321-323`) and never assigns it into the settings array, so
+  `WP_Block_Type::$textdomain` stays `null` even though the manifest declares the domain — the
+  property exists (`wp-includes/class-wp-block-type.php:110`) and is simply never populated from
+  metadata. Declare the domain in `block.json` for the editor and the translation pipeline, and when
+  you need to *assert* it, read the manifest (or the registered asset), not the block type.
+  **[verified against WordPress 7.1.4, 2026-11-03]**
 - **`supports.color` off + `PanelColorSettings` on** is the existing pattern where
   wrapper colours would fight the section design: the block exposes its own scoped
   colour attributes instead of core ones.
+- **A section's colour is a set, not one control.** Heading text, non-heading content text and
+  the background are separate attributes defaulting to `''`; links, buttons and focus rings are
+  further foregrounds on the same surface. The live parent splits the roles this way inside
+  individual blocks — `headingColor` / `descriptionColor` / `quoteColor` / `authorNameColor` /
+  `linkColor` / `overlayBackgroundColor` / `buttonTextColor` in `expanding-cards`,
+  `stacking-cards` and `testimonials` — but never documents the pattern as a contract, and adds
+  no contrast requirement to it. Follow the closest block's naming, keep one content-role name
+  inside the block, and treat the pair as the thing that must pass
+  `../../nextora-design-system/references/presets-and-switching.md` §3.1.
+- **A background-image attribute set is not complete without an overlay.** The parent exposes an
+  image + overlay set in `page-title`, `advanced-container` and partly `slide-item`, but the set is
+  **not uniform across blocks**: `call-to-action` has no `overlayColor`, `scrolling-image-strip` has
+  no image field at all, and `overlayOpacity` is expressed on three different scales (`page-title`
+  `0.3` float, `slide-item` `0.4`, `call-to-action` `40` integer percent). Pick one convention for
+  the block and document
+  it. Pass a focal point when the image is a background, and render the image on a decorative
+  layer (`aria-hidden`) so the copy is never inside an `<img>`.
+- **`supports.spacing` and an inner gap attribute are different owners.** `supports.spacing`
+  writes `style.spacing` on the *wrapper* through `get_block_wrapper_attributes()`;
+  `blockGap` (inside `supports.spacing`) is the space between children; a custom
+  `columnGap`/`rowGap`/`itemGap`/`cardGap` is the block's own internal layout and belongs in
+  its stylesheet. The parent uses all three inconsistently — of its 40 manifests, 39 declare
+  `supports.spacing`, 20 also declare a `blockGap` key (19 enable it, one sets it `false`), and 16 declare their own gap attribute under
+  14 distinct names; `expanding-cards` carries wrapper padding, wrapper margin, wrapper
+  `blockGap` and its own `cardGap` on one block. Decide and write down which owner each space
+  has, and do not add a `paddingTop`-style attribute that writes the property core already
+  writes on the same element.
 
 ## 4. Registration [parent contract]
 
@@ -180,9 +215,17 @@ Consequences that bite:
   `@wordpress/rich-text`) and are not made safe by the block manifest. Do not lift
   the editor bundle's package list into `build-blocks.mjs` or assume a block entry
   inherits it.
-- **Editor scripts are not a place for a second React.** `jsxImportSource: 'react'`
-  in IIFE output plus the shim is the whole runtime model. Do not add a second React,
-  a blanket `@wordpress/scripts` pipeline, or a different bundler.
+- **Editor scripts are not a place for a second React — and the shim alone does not prevent one.**
+  `wpExternalsPlugin` intercepts `@wordpress/*` only. With `jsx: 'automatic'` and
+  `jsxImportSource: 'react'`, esbuild emits `import { jsx } from "react/jsx-runtime"`, and `react`
+  is present in `node_modules` as a transitive dependency — so **both source themes bundle a full
+  React runtime into every block bundle**: 40 of the parent's 40 `blocks/*/index.js` and 39 of the
+  sample's 39 contain React's element symbol, with no `react` entry in the asset manifest, because
+  the manifest only ever describes `@wordpress/*`. Do not reproduce that. Add an `onResolve` filter
+  for `/^react(\/jsx-runtime|\/jsx-dev-runtime)?$/` that maps the module onto
+  `window.wp.element` (which *is* React) and ships zero React — verified by grepping the built
+  bundle for `Symbol.for("react.element")`, which must be absent. Do not add a second React, a
+  blanket `@wordpress/scripts` pipeline, or a different bundler.
 - **Generated bundles and manifests are not source.** No shipped skill, patch or
   review may treat `index.js`, `index.asset.php`, `view.js` or `view.css` as editable.
 
@@ -258,7 +301,26 @@ never a silent shape change.
 - Wrap the root with `get_block_wrapper_attributes( $wrapper_args )` — the parent
   does this in `blocks/team-section/render.php` and `blocks/advanced-icon/render.php`
   — and merge your own `data-*`/style into `$wrapper_args`, not into a hand-built
-  `<div class>`.
+  `<div class>` and not into a second `style` attribute beside it.
+- **Emit scoped colours as custom properties on the block's own styled element, and let the stylesheet
+  consume them** — the inner surface when the wrapper already carries core spacing, so the wrapper's
+  style attribute belongs to core supports alone (§3.2's one-element-one-owner rule). An empty
+  attribute then emits no declaration at all (theme default), a preset slug resolves to
+  `var(--wp--preset--color--<slug>)` so a palette change reaches the surface, and the stylesheet owns
+  the fallback. Separate the owners while you do it: the section's own rhythm padding goes on that
+  same block element, not on the wrapper core already pads.
+- **One resolver per theme, not per block.** The parent has 25 `nextora_*_resolve_color()`
+  implementations with real drift between them (`advanced-list` does no hex→slug mapping;
+  `advanced-container` returns `''` for unknown input; `advanced-icon` returns `'currentColor'`
+  for empty input and is the only one that accepts `has-*-color`). Duplicating that shape is
+  what produced the drift. A child block resolves through the child's own shared helper; a new
+  parent block should share one. The storage rules themselves are
+  `../../nextora-design-system/references/presets-and-switching.md` §3, and the pair rules are
+  §3.1.
+- **Derive a foreground from the surface the block actually paints.** A section with no background
+  colour and no media layer paints nothing: compositing a scrim over a stand-in grey and
+  concluding "white text" produces white-on-white the moment the theme's own background is light.
+  Return "nothing to derive", emit nothing, and let the theme default apply.
 - **Escape by context**: `esc_html` for text, `esc_attr` for attribute values and
   inline style strings, `esc_url` for URLs, `wp_kses_post` (or the theme's rich
   helper) for stored HTML. The child's `nextsaas_rich()` runs `esc_html` on text
@@ -272,7 +334,7 @@ never a silent shape change.
 - Resolve scoped colour values through the theme helper rather than echoing raw
   input: `nextora_icon_resolve_color()` / `nextora_ac_resolve_color()` for parent
   blocks, the child's own contract for child blocks. See
-  `../nextora-design-system/references/presets-and-switching.md`.
+  `../../nextora-design-system/references/presets-and-switching.md`.
 - Every string goes through the **target theme's** text domain — `nextora` in the
   parent, `<child-slug>` in a child. Never the parent domain in child code.
 - Optional per-block PHP (`register-styles.php` / `register-editor.php`) is
@@ -303,7 +365,7 @@ never a silent shape change.
 ## 11. Acceptance
 
 Block-specific steps to add on top of
-`../nextora-ecosystem/references/quality-gates.md` §8:
+`../../nextora-ecosystem/references/quality-gates.md` §8:
 
 1. Build with the target's own script (`npm run build:blocks`, or `npm run build`)
    and confirm the block appears in the **right category** in the inserter — proof
@@ -314,5 +376,24 @@ Block-specific steps to add on top of
    order and text match the editor.
 4. Confirm any scoped colour left empty follows the theme default, and that a
    selected preset still tracks a palette change.
-5. With the block's `viewScript` present, test the no-JS and reduced-motion paths
+5. **The colour set, on computed styles, in more than one scheme.** For each of theme defaults, a
+   light custom background, a dark preset background, an image plus overlay, a custom literal, a
+   partial-alpha literal and an empty override: read the computed `color` for a heading and for a
+   paragraph and the *effective* background (own `background-color`, else the nearest opaque
+   ancestor, composited with the overlay), then assert 4.5:1 normal text / 3:1 large text and
+   focus or UI boundaries. Change a Site Editor style variation and, separately, a visitor preset:
+   preset-backed colours must follow, literal ones must not move, and every resulting pair must
+   still pass. Confirm the heading selector consumes the heading colour and that paragraphs,
+   lists, captions and metadata consume the content colour.
+6. **Changing the background does not rewrite an explicit foreground.** Set a heading colour, then
+   change the background, and confirm the stored heading value is unchanged — and that the block
+   says so (a measured notice), rather than silently correcting it.
+7. **Spacing ownership.** With the wrapper spacing controls and the block's own padding/gap
+   controls, confirm each measurement lands on exactly one element; clear each control and confirm
+   no empty inline declaration remains; confirm a preset-backed value follows a change to the
+   spacing scale. Put the block in two adjacent sections and confirm the gap between them comes
+   from padding on both sides, not from a collapsed margin.
+8. With the block's `viewScript` present, test the no-JS and reduced-motion paths
    and confirm no layout jump at narrow and wide widths.
+9. Confirm the block renders complete, readable content with JavaScript disabled — a dark or
+   image-backed section included.

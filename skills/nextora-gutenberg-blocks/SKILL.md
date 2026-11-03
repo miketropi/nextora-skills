@@ -78,6 +78,23 @@ to place the block.
   `<InnerBlocks.Content />`.
 - Static: save exactly what the parser expects.
 
+Before the editor, settle two things the inspector will otherwise get wrong:
+
+- **The colour set.** A block whose surface can receive a background gets *separate* heading,
+  content and background attributes, all defaulting to `''`, plus its own overlay attributes when
+  it can carry an image. Empty means "derive the theme default"; the derivation is one helper the
+  editor and `render.php` both call, never a literal default and never two implementations, and it
+  must derive from the surface the block actually paints — a section with no background colour and
+  no media layer paints nothing and must emit nothing. Changing the background must not rewrite an
+  author's explicit foreground. Contrast is an acceptance criterion, not a nicety: 4.5:1 for normal
+  text, 3:1 for large text and for focus rings / UI boundaries, measured on the composited surface.
+  The rule and its checks are `../nextora-design-system/references/presets-and-switching.md` §3.1.
+- **The spacing owner.** `supports.spacing` (margin/padding) is core, on the wrapper; a section
+  block's own vertical rhythm is its own padding on its own element; the gap between elements
+  inside it is the block's own gap attribute. One owner per measurement, and an empty value emits
+  nothing. The table is §3.2 of the same reference. Do not add a `paddingTop`-style attribute that
+  writes the same property core already writes on the same element.
+
 Then write `edit.tsx` with native fields — `RichText` for visible text,
 `InnerBlocks` for nested content, media APIs for attachments, core link controls
 for URLs — and `InspectorControls`/`PanelBody` for settings, reusing the existing
@@ -87,7 +104,10 @@ persisted UI state.
 ### 6. Write `render.php` (dynamic blocks)
 
 `get_block_wrapper_attributes()` on the root; your own `data-*`/style merged into
-its argument array; escaping by context (`esc_html`, `esc_attr`, `esc_url`,
+its argument array rather than a second `style` attribute; scoped colours emitted as custom
+properties on the block's own styled element — the inner surface when the wrapper already carries
+core spacing — and read by the stylesheet, so an empty attribute emits no declaration
+at all and a preset slug still resolves to `var(--wp--preset--color--<slug>)`; escaping by context (`esc_html`, `esc_attr`, `esc_url`,
 `wp_kses_post`); scoped colours resolved through the theme helper; every string
 translated in the **target theme's** domain. Keep `render.php`'s class names
 aligned with the block stylesheet.
@@ -104,14 +124,32 @@ canvas-preview CSS stays scoped to the block, never to `wp-admin` chrome.
 
 Run the target's own script from the theme root (`npm run build:blocks`, or
 `npm run build`, or the child's `npm run build:blocks`). Never hand-edit
-`index.js`, `index.asset.php`, `view.js` or `view.css`. Then apply
+`index.js`, `index.asset.php`, `view.js` or `view.css`. Then rebuild once with no source change
+and confirm the generated files are **byte-identical** — manifest versions included — and that
+every `index.asset.php` declares only handles from the fixed 14-package list. A timestamp in the
+manifest version makes that check impossible, so read `writeAssetFile()` first: the parent writes
+`Date.now()` (`nextora/scripts/build-blocks.mjs:24-30`), the sample child writes the theme version
+plus a short content hash (`nextsaas/scripts/build-blocks.mjs:41-57`) — prefer the content-hash
+form, and read the version from the theme's single source of truth. Then apply
 `../nextora-ecosystem/references/quality-gates.md` and its §8 block recipe plus the
-block-specific steps in `references/block-contract.md` §11.
+block-specific steps in `references/block-contract.md` §11, which now include the
+colour-set, spacing-ownership and palette-switch checks.
 
 ## Hard limits
 
 - No second React runtime, no blanket `@wordpress/scripts` pipeline, no second
-  bundler. Reuse the theme's esbuild setup.
+  bundler. Reuse the theme's esbuild setup. The `@wordpress/*` shim does **not** cover `react`:
+  with `jsxImportSource: 'react'` the real runtime is bundled unless you map `react` and its JSX
+  runtime onto `window.wp.element` yourself. Both built-in themes fail this — their bundles contain
+  React's element symbol — so grep your own output for `Symbol.for("react.element")` and expect
+  nothing.
+- Do not resolve a scoped colour by calling a *parent block's* internal helper. The parent ships
+  25 per-block resolvers that disagree with each other (one returns `''` for unknown input,
+  another `'currentColor'`, one does no hex→slug mapping at all), and they are not an API. A child
+  block resolves through one shared helper of its own; a new parent block should share one too.
+- Do not ship a background-image control without an overlay control. A photograph's own pixels
+  cannot be measured server-side, so the overlay is the only mechanism that can carry a
+  readability guarantee.
 - Adding an unlisted `@wordpress/*` import builds but can read an undefined
   `window.wp.*` global: the asset manifest only lists a fixed 14-package handle set.
   Check the global and its handle before importing, or avoid the import.
@@ -137,10 +175,16 @@ block-specific steps in `references/block-contract.md` §11.
   item editor is a single dialog; no UI state is persisted.
 - `render.php` escapes by context and translates in the target domain; scoped
   colours resolve through the theme helper and empty values follow theme defaults.
+- A background-capable surface has separate heading, content and background controls, its derived
+  pair comes from one helper used by both the editor and `render.php`, and an explicit author
+  foreground is never silently overwritten by a background change.
+- Contrast and spacing were measured on the rendered page (computed styles) at the thresholds in
+  the design-system reference §3.1, and every space has exactly one named owner (§3.2).
 - View behaviour is idempotent, reserves layout, and respects reduced motion and
   no-JS.
 - Build output regenerated with the target's own script; generated files untouched
-  by hand.
+  by hand; a no-change rebuild is byte-identical (manifest version included) and every
+  `index.asset.php` declares only the 14 known handles.
 - Relevant §8 acceptance steps executed, or the unverified surface reported plainly.
 
 ## Boundaries

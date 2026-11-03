@@ -3,7 +3,7 @@
 The rules every specialist in this suite applies before calling work done. Each
 gate is a decision rule with a failure mode, not a checklist of aspirations.
 
-Related: `source-map.md` (where these come from), `../nextora-ecosystem/SKILL.md` (routing).
+Related: `source-map.md` (where these come from), `../../nextora-ecosystem/SKILL.md` (routing).
 
 ## 1. Data compatibility
 
@@ -42,6 +42,22 @@ Related: `source-map.md` (where these come from), `../nextora-ecosystem/SKILL.md
 - Missing build output must be visible, not silent. Guard a `file_exists()` read,
   then make the failure surface during verification — an empty guard that hides a
   missing compiled asset is not a fix.
+- **A generated artefact and a test fixture must not leak into the shipped tree.** Test doubles,
+  temporary block folders, throwaway manifests and build scratch files belong in a temp directory
+  that the code under test is pointed at — never inside the theme, and never "cleaned up in a
+  `finally`", because an aborted run leaves the artefact behind. The consequence is not cosmetic:
+  a theme registrar that globs `blocks/*` registers any directory holding a readable `block.json`,
+  so a leftover fixture becomes a real block in the inserter and in every runtime cell, and any
+  test that iterates `blocks/*/block.json` starts failing for a reason the next person cannot see.
+  If a README or a completion check claims a suite writes nothing into the theme, verify that by
+  reading the tests rather than asserting it.
+- **Assert what the composition actually guarantees, not a marker only some of its parts emit.** A
+  front page assembled from a mix of custom blocks and core blocks cannot assert one custom-block
+  data attribute per section — the core-block sections legitimately carry none — and a wrapper
+  regex that depends on a single attribute order or a single newline fails for a reason that has
+  nothing to do with the theme. Count the thing the composition promises (the rendered sections, the
+  resolved pattern, the composed structure), and parse markup with a parser rather than pattern
+  matching on attribute order.
 - Reuse the target's own pipeline (its `build:blocks` / `build:css` / `build:ts`
   scripts and its esbuild and PostCSS configuration). Never add a second React
   runtime, a blanket `@wordpress/scripts` pipeline, or an unrelated bundler.
@@ -79,8 +95,16 @@ Related: `source-map.md` (where these come from), `../nextora-ecosystem/SKILL.md
   `esc_html__()` with the **target theme's** text domain — never a hardcoded or
   parent domain in child code.
 - Block metadata declares `textdomain`; editor scripts use the translated
-  strings and mark the script as translated (`wp_set_script_translations()`)
-  when it carries translatable literals.
+  strings. **Check whether core already did the registration before calling
+  `wp_set_script_translations()` yourself:** for a block registered from `block.json`, core calls it
+  automatically when the manifest declares a non-empty `textdomain` **and** the built asset's
+  dependency list contains `wp-i18n` (`wp-includes/blocks.php:321-323`), and `i18n` is one of the
+  14 handles the block build emits. So a block bundle that imports `@wordpress/i18n` is already
+  covered, and a manual call there is redundant. Call it explicitly for an **editor** script that
+  is *not* a `block.json` asset (the theme's own `resources/ts/editor/` bundle, a standalone
+  `enqueue_block_editor_assets` script) or when the dependency list does not include `wp-i18n`.
+  Neither source theme calls it at all, which is consistent with this rule — not evidence that the
+  gate is optional. **[verified against core source, 2026-11-03]**
 - Pluralisation and count messages use `_n()`/`sprintf`, not string concatenation.
 - **In a block theme, separate code strings from starter content before applying
   this gate.** Copy that ships as block markup in `templates/*.html` and pattern
@@ -108,8 +132,31 @@ Related: `source-map.md` (where these come from), `../nextora-ecosystem/SKILL.md
 - Dialog/list mutations announce their outcome through an ARIA live region that
   is rendered from the first render, so assistive technology is already observing
   it when the text changes.
+- **Contrast is measured, not assumed.** WCAG 2.2 AA is the threshold: **4.5:1** for normal-size
+  text, **3:1** for large text (≥ 24 px, or ≥ 18.66 px bold) and for non-text UI — focus rings,
+  control borders, input outlines, meaningful icons. It applies to the *composited* surface: a
+  background colour, a background image plus its overlay, or the nearest opaque ancestor. Roles are
+  positional and their values invert per scheme, so a pair must be verified in the default scheme
+  **and** in a dark or alternative one, and a section must select an offsetting pair of roles
+  rather than "a light colour for dark sections". Colour must never be the only state cue. A
+  passing pair for a photograph cannot be asserted from a colour string: the overlay is the
+  mechanism, and the worst-case region behind the text has to be measured. Rules and the
+  per-surface recipe:
+  `../../nextora-design-system/references/presets-and-switching.md` §3.1.
 - `prefers-reduced-motion: reduce` disables non-essential motion, and the content
   is fully readable and operable with JavaScript disabled.
+- **Every space has exactly one named owner.** Space around a block belongs to core block supports
+  (wrapper margin/padding); a section's vertical rhythm belongs to the section's own padding; the
+  gap between elements inside it belongs to the block's own gap attribute. Two controls writing the
+  same property on the same element is a defect. An empty spacing control emits nothing, and a
+  spacing value that can follow the theme's scale is stored as preset identity
+  (`var:preset|spacing|<slug>`) rather than as a copied length. Ownership table:
+  `../../nextora-design-system/references/presets-and-switching.md` §3.2.
+- **Section rhythm survives being stacked.** No boundary may depend on margins collapsing, and the
+  boundary is verified as two non-zero computed paddings (previous bottom, next top) plus a
+  non-touching pair — first and last sections included. A rhythm that holds at one width and
+  collapses at another is a defect; see
+  `../../nextora-site-composition/references/templates-and-patterns.md` §5.2.
 - Layout holds at narrow and wide widths; long and empty strings do not break it.
 
 ## 7. Declared versus tested baseline
@@ -173,6 +220,27 @@ build success and a server workflow are not proof of runtime behaviour.
 5. Confirm a custom alpha colour survives to the rendered output, inherited
    blocks are still styled, child font files actually load, and the `wp-admin`
    chrome is unchanged.
+
+**Colour contrast and section rhythm (computed values, not declarations).**
+
+1. For each surface that can take a background, read `getComputedStyle(el).color` for a heading, for
+   body copy, for a link, for a button label, and for the focus ring, plus the **effective**
+   background — the element's own `background-color`, or the nearest opaque ancestor when it is
+   transparent, composited with any overlay layer. Assert the thresholds in §6. Do this for: theme
+   defaults (every control empty), a light custom background, a dark preset background, an image
+   with an overlay, a custom literal colour, a partial-alpha literal, and an empty override.
+2. Repeat after changing a **Site Editor style variation** and, separately, a **visitor preset**.
+   Preset-backed colours must follow; literal ones must not move; every resulting pair must still
+   pass.
+3. For an image-backed surface, measure the worst-case region behind the text (sample the rendered
+   pixels, not the image average) and confirm the overlay's opacity and colour are what make it
+   pass. If pixel sampling is not run, report that surface as unverified rather than claiming the
+   overlay guarantees readability.
+4. Read the computed padding at every section boundary — header→first, each adjacent pair, and
+   last→footer — at a narrow and a wide width, plus the internal heading/prose/card gap. Each
+   measurement must be non-zero where authored, must match the authored preset, and must come from
+   exactly one owner. Clear a spacing control and confirm the theme default returns with no empty
+   inline declaration left behind.
 
 **Composition.**
 

@@ -424,7 +424,7 @@ The child's `block.json` follows the same field set the parent and sample use:
 `editorStyle: "file:./editor.css"`, `render: "file:./render.php"`, and
 `viewScript: "file:./view.js"` when the block has front-end behaviour. Metadata
 must never point at TypeScript. Editor UI, `save` semantics and view scripts are
-covered by `../nextora-gutenberg-blocks/SKILL.md`.
+covered by `../../nextora-gutenberg-blocks/SKILL.md`.
 
 Build outputs: the sample's `scripts/build-blocks.mjs` globs
 `./blocks/*/index.{ts,tsx}` and `./blocks/*/view.{ts,tsx}`, writes `index.js` +
@@ -475,7 +475,7 @@ empty inserter. Check that each `block.json` is readable, that the bundle and it
   block still resolves `var(--wp--preset--color--…)` and a role font.
 
 Colour roles, presets and the visitor switcher are owned by
-`../nextora-design-system/SKILL.md`; a child contributes preset data files, never
+`../../nextora-design-system/SKILL.md`; a child contributes preset data files, never
 a second switcher.
 
 ## 9. PHP and i18n conventions

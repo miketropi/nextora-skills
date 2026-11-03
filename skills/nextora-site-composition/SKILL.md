@@ -103,6 +103,16 @@ register only *categories* in PHP. Required header fields and slug rules are in
 
 - `Title`, `Slug: <child-slug>/<pattern-slug>` (unique), `Categories`, and a
   `Description` that says when to use it.
+- **A section pattern owns its own vertical rhythm, and says which mechanism provides it.** The
+  live parent's own patterns do this — `patterns/impact-statistics.php`,
+  `patterns/our-core-values.php`, `patterns/contact-form.php` and
+  `patterns/banner-with-text-button.php` all set `style.spacing.margin` `top`/`bottom` to `0` and
+  own the rhythm with `style.spacing.padding`, stored as `var:preset|spacing|<slug>` — but no suite
+  file states the requirement, so a new pattern can omit it and look acceptable in isolation while
+  every boundary changes when the sections are stacked. Give each section deliberate top and
+  bottom padding, neutralise the wrapper margins, and never rely on margins collapsing between two
+  sections to create or remove a gap. Ownership table:
+  `../nextora-design-system/references/presets-and-switching.md` §3.2.
 - The pattern body is the serialized block markup the editor inserts, starting
   after the closing `*/` of the header comment.
 - It must parse, use only registered blocks, and stay editable after insertion.
@@ -161,6 +171,11 @@ site's customisations; inspect or reset only a disposable environment.
 Resolve each template and part in the front end, confirm patterns insert and stay
 editable, confirm the requested WordPress minimum and the current supported
 release, and run the browser recipe in `references/templates-and-patterns.md`.
+Check the composition at its **boundaries**, not only per section: for every adjacent pair read
+the previous section's computed bottom padding and the next section's computed top padding,
+confirm both are non-zero and match what was authored, confirm the first and last sections gain no
+accidental outer space, and confirm no pair touches. Repeat at a narrow and a wide width, because a
+preset that collapses at one width is a rhythm defect the per-section view cannot show.
 Mark anything you did not exercise as unverified.
 
 ## Completion checks
@@ -174,6 +189,9 @@ Mark anything you did not exercise as unverified.
 - Patterns parse, use registered blocks, keep unique slugs, and their categories
   are the ones the theme registers in PHP.
 - Query loops use explicit context, sanitised attributes and a no-results state.
+- Every section names its own spacing owner, none depends on margins collapsing, and each measured
+  boundary (first, adjacent, last) was checked on computed styles at both a narrow and a wide
+  width.
 - `theme.json` declares only owned, non-core template names.
 - [`quality-gates.md`](../nextora-ecosystem/references/quality-gates.md) applied,
   including its composition acceptance section.

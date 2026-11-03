@@ -16,9 +16,9 @@ prefer their live values over any value quoted here.
 | `assets/js/scheme-switcher.js` | The browser side: apply/reset, persistence, precedence, UI. |
 | `blocks/advanced-icon/color-utils.ts`, `blocks/advanced-icon/lucide.php`, `blocks/advanced-container/render.php` | The scoped-colour helper pattern on both sides. |
 
-Related: `../nextora-ecosystem/references/source-map.md`,
-`../nextora-ecosystem/references/quality-gates.md`,
-`../nextora-gutenberg-blocks/references/block-contract.md`.
+Related: `../../nextora-ecosystem/references/source-map.md`,
+`../../nextora-ecosystem/references/quality-gates.md`,
+`../../nextora-gutenberg-blocks/references/block-contract.md`.
 
 ## 1. Canonical preset identity
 
@@ -28,7 +28,26 @@ Parent palette slugs are `base`, `contrast`, `primary`, `paragraph`, `secondary`
 gradient slugs are `gradient-primary`, `gradient-secondary`, `gradient-tertiary`,
 `gradient-subtle`, `gradient-soft`, `gradient-overlay`. All of these are
 **identifiers**: a preset's value comes from the target's active
-`theme.json`/variation, never from a value copied out of a skill or a sample design.
+`theme.json`/variation, never from a value copied out of a skill or a sample design. The parent's
+spacing-size slugs are `10`, `20`, `30`, `40`, `50`, `60` (`settings.spacing.spacingSizes`, with
+`defaultSpacingSizes: false`).
+
+**Reading the merged presets in PHP is not a flat list.** `wp_get_global_settings()` returns a preset
+key (palette, fontFamilies, spacingSizes, gradients …) **bucketed by origin** —
+`default`, `theme`, `custom`, `user` — not as one array of entries:
+
+```
+wp_get_global_settings( array( 'spacing', 'spacingSizes' ) )
+→ array( 'default' => array( … core's 20–80 … ),
+         'theme'   => array( array( 'slug' => '10', 'size' => 'clamp(…)', … ), … ),
+         'custom'  => …, 'user' => … )
+```
+
+So `array_column( $value, 'slug' )` over that returns nothing, and an assertion built on it fails
+while the presets are perfectly present. Flatten the buckets first, and assert the `theme` bucket
+when the point is "the parent's own presets survived a child's `theme.json`". Do **not** treat a
+populated `default` bucket as a defect on its own — it carries core's defaults and is expected even
+when a theme sets `defaultSpacingSizes: false`. **[verified against WordPress 7.1.4, 2026-11-03]**
 
 Rules:
 
@@ -123,7 +142,12 @@ On the PHP side the equivalent resolvers are `nextora_icon_resolve_color()` and
   container resolver returns `''` for unrecognised input. The resolver's own
   allowlist — not the picker — is therefore the boundary.
 
-Reuse these signatures; do not write a parallel resolver. The sample child does
+Reuse this **behaviour** — slug storage, hex→slug on a full-opacity match, literal retention for
+partial alpha, 8-digit hex handled before `sanitize_hex_color()`, `''` for empty — but implement it as
+**one helper shared by every block in the target theme**. In a child theme that helper belongs to the
+child; a new parent block should share one too. Copying the shape block-by-block is what produced the
+drift listed above, and calling a parent *block's* internal resolver from child code is not reuse at
+all: it is a dependency on a private implementation that is free to change without notice. The sample child does
 **not** demonstrate this pattern: `resources/ts/editor/colour-controls.tsx` exists
 there but nothing imports it, and no `block.json` declares the
 `sectionBg`/`sectionHeading`/`sectionText` attributes it drives — so no sample
@@ -134,6 +158,198 @@ therefore proves nothing about switching; follow the parent helper pattern above
 Note what none of this covers: **a colour control never sanitises stored HTML.** The
 toolbar/format restriction is a UX boundary; output still passes `wp_kses_post()` or
 a narrower allowlist.
+
+## 3.1 Contrast pairs: foreground, background and the surface they meet
+
+§3 is about storing and resolving *one* colour. A surface that can receive a background needs a
+**pair**, and the pair is the acceptance unit.
+
+### 3.1.1 The thresholds
+
+External standard, not a house preference — WCAG 2.2 AA, and it is the number an acceptance
+report has to quote:
+
+| Foreground | Minimum | Applies to |
+| --- | --- | --- |
+| Normal-size text | **4.5:1** | headings, body copy, lists, captions, metadata |
+| Large text | **3:1** | ≥ 24 px, or ≥ 18.66 px when bold |
+| Non-text UI, boundaries, state | **3:1** | focus rings (`:focus-visible`), button borders, input outlines, icons that carry meaning |
+
+Colour must not be the only state cue, and a failing pair is a defect even when the design looks
+fine in one scheme.
+
+**A focus indicator is its own foreground, measured against the surface it is drawn on.** Do not
+inherit it from the body text colour by default: the moment an author sets that colour close to the
+background, the ring falls below 3:1 (a light `surface` value on a white section is roughly 1.1:1)
+and the failure is invisible in the panel that reports the *text* ratios. Give the ring a
+surface-derived token, and report its measured ratio in the editor alongside the heading, content
+and button pairs. The same reasoning applies to control borders and any other boundary the author
+can recolour. The parent ships no contrast helper at all — `grep -ri
+'luminance\|contrast_ratio\|wcag'` over its `blocks/`, `inc/` and `resources/` returns nothing —
+so this is a **[new-output requirement]**, not something to copy. **[verified, 2026-11-03]**
+
+### 3.1.2 Three attributes, not one
+
+Heading text, non-heading content text and the background are three separate attributes, each
+defaulting to `''`. Links, buttons and focus rings are further foregrounds on the same surface
+and are checked independently. Naming follows the closest existing block's vocabulary and must
+avoid reserved core support names (§3): the live parent splits the roles across blocks as
+`headingColor` / `descriptionColor` / `quoteColor` / `authorNameColor` / `linkColor` /
+`overlayBackgroundColor` / `buttonTextColor` (`blocks/expanding-cards/block.json`,
+`blocks/stacking-cards/block.json`, `blocks/testimonials/block.json`). There is no parent-wide
+`contentColor`; pick one name and use it consistently inside the block.
+**[parent contract, by observation]**
+
+### 3.1.3 Empty means "derive the theme default", and one derivation serves both paths
+
+- An empty foreground emits **no** inline declaration.
+- With the foreground empty, the readable value is derived from the *background actually in
+  effect*: resolve the background to a comparable value, compare the candidate foregrounds the
+  theme already supplies (`base`, `contrast`, `paragraph`, …) by WCAG contrast ratio, and keep
+  the best one. Picking between the theme's own anchors — rather than testing a hardcoded
+  lightness threshold or inventing a colour — is what makes a palette change and a style
+  variation re-derive correctly.
+- **Derive from the surface the section actually paints.** A section with no background colour and
+  no media layer paints nothing: it sits on the page canvas, so the derivation must not composite
+  a scrim over a stand-in grey and conclude that white text is right. Return "nothing to derive"
+  and emit nothing, which is when the theme default applies.
+- **Every surface derives its own pair — nesting included.** A card, callout or inset panel inside a
+  section is its own surface: if the section is dark and the card keeps a light background, the card's
+  copy must be derived against the *card's* surface, not inherit the section's. A foreground inherited
+  across a surface boundary is the `1.10:1` white-on-light failure, and it is invisible whenever the
+  two surfaces happen to agree. Derive per surface, or make the outer rule also set the inner surface's
+  background so the pair is deliberate.
+- **Composite the background's own alpha before measuring.** A semi-transparent background colour is
+  not the surface: composite it over the surface beneath (the page canvas, or the parent surface) and
+  derive against the result, or the decision is made against a colour the browser never paints — a
+  `rgba(18,52,86,0.5)` band derives a foreground for `#123456` while rendering over
+  `rgb(136,153,170)`, and content that passes on paper measures 2.68:1 on screen.
+- The **editor and the renderer must call the same derivation.** Two implementations (a PHP one
+  for `render.php`, a JS one for an inspector notice) are the parity defect in gate §2 waiting to
+  happen: they drift, and the editor starts telling the author something the front end does not do.
+- A derived value is **never persisted back** into an attribute. It is computed state, not author
+  intent, and writing it would make an empty control stop meaning "follow the theme".
+- An explicit author choice is **never silently overwritten**. When the background changes, stored
+  foregrounds stay byte-identical; if the resulting explicit pair fails the threshold, surface it
+  (a notice naming the measured ratio) and offer an explicit action the author can undo. Changing
+  a background is not consent to change a foreground.
+
+Derivation requires parsing the colour the theme actually emits. Accept at least 3/6/8-digit hex,
+`rgb()`/`rgba()`, `hsl()`, and whatever form the target's own palette uses; composite alpha over
+the surface behind it before measuring; and return "underivable" — never a guess — for anything
+else, then fall back to the page-canvas pair and say so in the editor.
+
+### 3.1.4 A background image stops being a colour
+
+An overlay is **required**, not an advanced option, whenever a background image can carry text,
+and contrast is measured against the **composited** result:
+
+1. The pair is measured against the surface the text actually sits on: background colour,
+   composited with the overlay at its authored opacity, over the image.
+2. The image's own pixels are unknown server-side, so the overlay is the readability mechanism.
+   That is a statement about *where* the guarantee comes from, not a substitute for checking: the
+   worst-case region of the real image must be measured (sample the rendered pixels behind the
+   text box, not the image average), and the overlay opacity raised or the pair changed until it
+   passes.
+3. A background image with an empty overlay colour and an opacity of `0` is the case to look for
+   and reject: the live parent ships exactly that in `patterns/banner-with-text-button.php` —
+   `backgroundType: image`, `overlayOpacity: 0` — over a remote photograph with headings on top.
+   **[observed defect]**
+4. Never promise a universal automatic foreground for an arbitrary image. "Unverifiable" is a
+   reportable state; "the overlay makes it readable" without a measurement is not.
+5. The parent's overlay convention is **not uniform, and neither is the attribute set**: `page-title`
+   uses `overlayOpacity` as a `0.3` float, `call-to-action` as a `40` integer percentage and
+   `slide-item` as `0.4` — three scales among the blocks that have the attribute at all. Only
+   `page-title` and `advanced-container` carry the full image-plus-`overlayColor`-plus-`overlayOpacity`
+   set; `call-to-action` has no `overlayColor`, and `scrolling-image-strip` has no image field. Pick
+   one convention for the block, document it, and never assume the set is complete elsewhere.
+   **[observed inconsistency, verified 2026-11-03]**
+
+### 3.1.5 Store foregrounds exactly as §3 stores any scoped colour
+
+Preset-slug storage, hex→slug normalisation on a full-opacity match, literal retention for partial
+alpha, 8-digit hex handled before `sanitize_hex_color()`,
+`var(--wp--preset--color--<slug>)` on output, `''` for "theme default" — all of it applies to
+foregrounds unchanged. A foreground stored as a literal hex is a foreground that will not follow a
+palette change, which is exactly the failure the pair is supposed to prevent.
+
+### 3.1.6 These are the checks, on computed styles
+
+Per surface, in the browser, on the real page:
+
+1. Read `getComputedStyle(el).color` for the heading and for body copy, and the **effective**
+   background — the element's own `background-color`, or the nearest opaque ancestor when it is
+   transparent, composited with any overlay layer.
+2. Compute the ratio and assert §3.1.1's thresholds hold.
+3. Repeat for: theme defaults (empty controls); a light custom background; a dark preset
+   background; an image with an overlay; a custom literal; a partial-alpha literal; and an empty
+   override.
+4. Change a **Site Editor style variation** and, separately, a **visitor preset**: preset-backed
+   colours must follow, custom literals must stay fixed, and every resulting pair must still pass.
+   Roles are positional — their values invert per scheme — so a section must select an
+   **offsetting pair drawn from the same roles**, never "a light value for dark sections". Check
+   the target's own scheme files rather than assuming: the parent ships five
+   (`styles/color-scheme/*.json`), and in the dark ones (`midnight`, `developer`) `base` *and*
+   `surface` are the dark values while `contrast` is the light one — the reverse of the light
+   ones.
+5. Confirm descendant selectors split the roles: headings consume the heading colour and
+   paragraphs, lists, captions and metadata consume the content colour.
+6. Check links, buttons and focus rings independently, and confirm colour is not the only cue.
+
+A colour that is present as a custom property but was never measured is not a passed check.
+
+## 3.2 Spacing: one owner per measurement, stored by identity
+
+Three different measurements get called "spacing", and the live parent ships all three on a single
+block, so the ownership question is real rather than theoretical. Of the parent's **40** block
+manifests, **39** declare `supports.spacing`, **20** declare a `blockGap` key inside it (**19** of
+them enable it; one sets it `false`), and **16**
+declare their own gap attribute under **14** distinct names (`cardGap`, `columnGap`,
+`elementGap`, `gap`, `gridColumnGap`, `gridGap`, `gridRowGap`, `iconTextGap`, `imageGap`,
+`itemGap`, `numberLabelGap`, `rowGap`, `stepHorizontalGap`, `stepVerticalGap`).
+`blocks/expanding-cards/block.json` alone carries wrapper `padding`, wrapper `margin`, wrapper
+`blockGap` **and** its own `cardGap`. `grep -rn blockGap` over this suite returned nothing before
+this section existed. **[verified, 2026-11-03]**
+
+### 3.2.1 Who owns what
+
+| Space | Owner | Emitted as | Never |
+| --- | --- | --- | --- |
+| Space *around* the block, authored per instance | Core supports: `supports.spacing.margin` / `.padding` | `style.spacing` on the wrapper, via `get_block_wrapper_attributes()` | A hand-built inline `margin`/`padding` on the wrapper |
+| A section's **vertical rhythm** | The section block's own padding, on its own element | preset identity: `var:preset\|spacing\|<slug>`, or a sanitised custom length when the inspector offers one | The wrapper, when core already emits padding there |
+| Space between elements **inside** the block | The block's own gap attribute (`blockGap`, `columnGap`, `rowGap`, `itemGap`) | a block-scoped custom property read by the block's stylesheet | A copied literal length that cannot follow the spacing scale |
+
+### 3.2.2 Rules
+
+- **One element, one owner.** If a wrapper carries core `style.spacing.padding`, the section's
+  rhythm padding belongs on a different element. Two controls that write the same property on the
+  same element is a defect, not a bonus.
+- **Store by identity, not by value.** A spacing control that offers the theme's spacing scale
+  stores `var:preset|spacing|<slug>` (emitted as `--wp--preset--spacing--<slug>`) so a change to
+  the scale reaches the surface — the same argument as §3 for colours. The live parent does exactly
+  this throughout its own patterns (`style.spacing.padding` of `var:preset|spacing|50`, `margin`
+  of `0`), so this is the existing convention rather than a new one. **[parent contract, by observation]**
+- **Sanitise custom lengths, and only where offered.** Where the inspector allows a custom value,
+  accept a CSS length (a number with a unit, or a `clamp()`/`min()`/`max()`/`calc()` form built
+  from lengths) and reject everything else — including anything containing `;`, `{`, `}`, quotes,
+  `url(`, `@` or a comment. Never pass an arbitrary string into a style attribute. Note the
+  parent's two spacing resolvers disagree on their fallback signature
+  (`nextora_sis_resolve_spacing( $raw, '' )` vs
+  `nextora_sw_resolve_spacing( $raw, 'var(--wp--preset--spacing--40, 1rem)' )`) — pick one
+  behaviour for the block and document it rather than inheriting both.
+- **Empty emits nothing.** No `padding-top:` with an empty value, no `--x:;`. An empty control
+  means "the theme's own value", and the stylesheet — not an empty inline declaration — is where
+  that value lives.
+- **`settings.spacing` is a sequential array like the palette.** Declaring
+  `settings.spacing.spacingSizes` in a child **replaces** the parent's array. Either list every
+  inherited entry (the parent's are `10`, `20`, `30`, `40`, `50`, `60`, with
+  `defaultSpacingSizes: false`) or omit the key entirely and inherit it. Omitting is the cheaper
+  correct answer. **[parent contract]**
+- **No rhythm by margin collapse.** Adjacent sections must not rely on collapsing margins to
+  produce or remove a gap: a collapsed margin is invisible in the inspector, disappears in a
+  flex/grid parent, and cannot be measured per section. Neutralise the margins
+  (`style.spacing.margin` `top`/`bottom` of `0`) and own the rhythm with padding, then verify the
+  computed padding at both sides of every boundary.
 
 ## 4. Two different mechanisms — do not conflate them
 

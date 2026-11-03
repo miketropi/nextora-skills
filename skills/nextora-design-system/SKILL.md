@@ -40,6 +40,8 @@ Never take a palette value from a skill, a screenshot or a sample child.
 | A site-wide alternative look the owner selects and keeps | A theme.json style variation (`styles/*.json`, `styles/typography/*.json`) |
 | A visitor-facing preview choice | The switcher, and only behind its gate (§6) |
 | A brand default for a whole child theme | A child palette/font contribution plus the `:root` role defaults (§7) |
+| A section that must stay readable on any background it can be given, including a photograph | A coordinated foreground/background **role pair** — separate heading, content and background attributes, one derivation shared by the editor and the renderer, and a contrast check on the *composited* surface (§3.1) |
+| Deciding who owns a space: the wrapper's margin/padding, a section's vertical rhythm, or the gap between elements inside it | Spacing ownership — exactly one owner per measurement, named in the block and in the pattern (§3.2) |
 
 Prefer native supports first. Add a scoped override only when global styles cannot
 express it, and never invent a second appearance system beside these.
@@ -76,10 +78,55 @@ partial-alpha 8-digit hex stay literal; gradients keep preset identity the same 
 On output, a stored slug becomes `var(--wp--preset--color--<slug>)` so a palette
 change reaches the surface, and 8-digit hex is handled **before**
 `sanitize_hex_color()`. An empty value means "theme default" and emits nothing.
-Reuse the real signatures; do not write a parallel resolver. Remember that a colour
+Reuse this **behaviour**, but implement it as one helper shared by every block in the target theme —
+a child's own helper, never a call into a parent block's internals. Remember that a colour
 control is not a sanitiser: stored HTML still passes `wp_kses_post()`.
 
-### 6. Respect the switcher gate, and contribute data rather than code
+### 6. Pair every foreground with the background it actually sits on
+
+A colour control that sets a background is half a decision. Whenever a surface can receive a
+background — a preset, a literal, or a photograph under an overlay — its foregrounds are a
+**set**, and the set is what has to be readable:
+
+- **Separate roles, separate controls.** Heading text, non-heading content text and the
+  background are three attributes, each defaulting to `''`. Links, buttons and focus rings are
+  further foregrounds on the same surface and are checked too (`:focus-visible` is a non-text
+  boundary; §3.1). Never fold heading and body copy into one "text colour".
+- **Empty means "theme default", derived.** With a control left empty, the readable value is
+  derived from the background actually in effect, by one helper shared by the editor and the
+  renderer so the two cannot disagree. A derived value is never persisted into an attribute.
+- **An explicit choice is never silently overwritten.** Changing the background must not rewrite a
+  heading or content value the author set; when an explicit pair fails the threshold, surface it
+  and offer an explicit action instead.
+- **A photograph is not a colour.** Derivability stops at the overlay: measure the *composited*
+  worst-case surface, which means an overlay control is not optional, and never claim the overlay
+  guarantees readability without that measurement (§3.1).
+- **Verify on computed styles, in more than one scheme.** The pair must survive a palette change,
+  a Site Editor style variation and a visitor preset. Roles are positional and their *values*
+  invert per scheme, so the rule is "an offsetting pair drawn from the same roles", never "a light
+  value for dark sections".
+
+### 7. Give every space exactly one owner
+
+Three different things are routinely all called "spacing", and the live parent ships all three on
+one block (a single manifest can declare `supports.spacing`, `blockGap` and its own `cardGap`).
+Name the owner before writing either side:
+
+| Space | Owner |
+| --- | --- |
+| Space around the block, chosen by the author | Core block supports — `supports.spacing.margin` / `.padding`, emitted through `get_block_wrapper_attributes()` |
+| A section's vertical rhythm | The section's own padding, on the block's own element |
+| Space between elements *inside* the block | A custom gap attribute of the block (`blockGap`, `columnGap`, `rowGap`, `itemGap`, …) |
+
+The emission form, the custom-length sanitiser, the `settings.spacing` replacement hazard and the
+no-margin-collapse rule are owned by
+`references/presets-and-switching.md` §3.2 — do not restate them here.
+
+Rules that follow: do not let one element carry two owners; emit nothing for an empty value;
+prefer the preset's identity over a copied length so the rhythm follows a change to the spacing
+scale; and never rely on margins collapsing between siblings to produce a gap.
+
+### 8. Respect the switcher gate, and contribute data rather than code
 
 The visitor switcher exists only when `NEXTORA_COLOR_SCHEME_SWITCHER` is strictly
 `true`. Away from that, there is no payload, no script, no page-theme CSS and no
@@ -90,7 +137,7 @@ optionally `styles/*.json` for a bundled variation, and an optional
 default roles on `:root` in its later-loaded CSS (§7 of the reference) instead of
 pinning a preset font. Never add a switcher implementation to a child.
 
-### 7. Verify on the real surfaces
+### 9. Verify on the real surfaces
 
 Build with the target's own script (`npm run build:css` or `npm run build`) — never
 edit `assets/css/*` output, and never state that a build regenerates
@@ -102,6 +149,13 @@ design-system recipe plus the preset-specific steps in
 ## Hard limits
 
 - Do not hardcode a brand palette. Values come from the target's active presets.
+- Do not promise a universal automatic foreground for an arbitrary image. The luminance of
+  unknown pixels cannot be derived from a colour string: require an overlay or a verified
+  author-selected pair, and report the unverifiable case as unverified instead of asserting it.
+- Do not resolve a child block's colours by calling a parent block's internal helper
+  (`nextora_ac_resolve_color()`, `nextora_icon_resolve_color()`, `nextora_si_resolve_color()`,
+  …). Those are per-block, they already disagree with one another, and they are not an API. A
+  child resolves through its own shared helper, and a new parent block should share one too.
 - Do not propagate stale fallback hexes from older docs into new theme CSS.
 - Do not re-implement the switcher, and do not claim it works because a sample child
   looks right: the sample pins its own fonts and adds child-only palette entries.
@@ -127,6 +181,13 @@ design-system recipe plus the preset-specific steps in
   default pair is declared on `:root` through the roles.
 - Style variations (persistent) and the switcher (runtime preview) are described and
   tested as different things.
+- Every background-capable surface has separate heading, content and background controls, and
+  its derived pair comes from one helper shared by the editor and the renderer.
+- Contrast was measured on composited computed styles at the thresholds in
+  `references/presets-and-switching.md` §3.1, in the default scheme plus at least one
+  dark/alternative scheme, including an image-overlay case.
+- Every space in the deliverable has exactly one named owner (§3.2 of the reference); no gap
+  depends on margins collapsing, and an empty spacing control emits nothing.
 - The §8 acceptance steps were executed against **computed** styles, or the
   unverified surface is reported plainly.
 
