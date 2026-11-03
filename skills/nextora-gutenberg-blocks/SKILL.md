@@ -10,7 +10,11 @@ render, view script, build output consumption. Appearance rules are owned by
 `nextora-design-system`; templates and patterns by `nextora-site-composition`;
 child-theme scaffolding by `nextora-child-themes`. Load the design-system skill
 whenever a request touches how a block looks, and load both whenever a block must
-follow presets or the visitor switcher.
+follow presets or the visitor switcher. When a block comes out of a source-template
+port, `../nextora-template-porting/SKILL.md` supplies the section and interaction
+rows that justify it and this skill implements the reusable decision ladder choice;
+that dossier supplies analysis and planning only and never overrides the block
+contract below.
 
 ## Load these references first
 

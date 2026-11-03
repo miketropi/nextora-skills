@@ -9,7 +9,11 @@ Owns the composition layer of a Nextora-sourced block theme: `templates/`,
 `parts/`, `patterns/` and the `theme.json` declarations that describe them. Block
 internals are `../nextora-gutenberg-blocks/SKILL.md`; appearance and preset data
 are `../nextora-design-system/SKILL.md`; child bootstrap and assets are
-`../nextora-child-themes/SKILL.md`.
+`../nextora-child-themes/SKILL.md`. When a page or section is ported from an
+external source template, `../nextora-template-porting/SKILL.md` supplies the
+section conversion matrix, its reuse classification and the page ownership model
+this skill implements against; it supplies analysis and planning only and never
+overrides the composition contract below.
 
 ## References to load
 

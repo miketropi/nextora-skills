@@ -1,6 +1,6 @@
 # Evaluation scenarios
 
-An instruction-suite evaluation corpus: nine prompts, the source fixtures each
+An instruction-suite evaluation corpus: eleven prompts, the source fixtures each
 one depends on, the observable result it must produce, and the conditions that
 count as failure. It is not a WordPress fixture application and not an automated
 scoring framework — a person or an agent runs a prompt and inspects the answer.
@@ -18,7 +18,7 @@ expectations below are about the answer, not about the command that produced it.
 Requirements:
 
 1. **One skill per run.** Load exactly one `SKILL.md` and stop the client from
-   auto-discovering the other four, or a passing answer may come from the wrong
+   auto-discovering the other skills, or a passing answer may come from the wrong
    file.
 2. **A fresh context per scenario.** No carry-over between runs.
 3. **Read-only.** Read/glob/grep-class tools only. A scenario that writes files
@@ -40,16 +40,22 @@ install just the one skill with
 `SKILL.md` into a fresh conversation. Run each scenario in its own fresh session
 or pane, and let it finish before you judge it.
 
-Every prompt must be prefixed with both roots so the agent can actually read the
-sources — never write "the source roots supplied in this plan" without pasting
-them:
+Every prompt must be prefixed with the roots it needs so the agent can actually
+read the sources — never write "the source roots supplied in this plan" without
+pasting them:
 
 ```text
 Source roots (read-only; do not modify):
 - parent theme root: <absolute path to the Nextora parent theme>
 - sample child theme root: <absolute path to the sampled Nextora child theme>
+- source template root: <absolute path to the template being ported>
 Load the skill's referenced Markdown files by their relative paths.
 ```
+
+The `source template root` line applies to the template-porting scenarios (10 and
+11) and may be omitted for the rest; the two theme roots apply to every scenario.
+A template-porting scenario still runs read-only — it inspects the source
+template, it never edits or copies it.
 
 Rules for the runner:
 
@@ -455,6 +461,241 @@ Baseline answer recorded in `../evals/portfolio-field-test.md` §12.
   measurement, or at one width only.
 - Interior boundaries checked but the first section's top and the last section's bottom ignored.
 - Duplicating the section list into both a template and a pattern.
+
+### 10. Messy source to normalized design system — `skills/nextora-template-porting/SKILL.md`
+
+**Prompt**
+
+> Port the source template described by the dossier appended to this prompt into a
+> Nextora child theme. Read the parent theme at the root above for its real preset
+> slugs and `--nextora-font-*` roles. Output the fixed conversion dossier the skill
+> defines — all nine headings, in order — plus the phase 0–6 roadmap with
+> prerequisites, owner skill and an observable gate per phase. Every claim must be
+> traceable to something in the dossier or the theme roots, or labelled unverified.
+> Do not write files.
+
+**Embedded source dossier (part of the prompt)**
+
+The source is an unminified, half-migrated marketing site. There is no repository
+history, no design documentation and no component library; `theme.css` and
+`index.html` are the only authored files. Two screenshots exist, at 1440px and
+390px, for the home hero only.
+
+```css
+/* theme.css — appended to and partially overridden during a redesign */
+:root{
+  --brand:#0b5cab; --brand-alt:#0a5cab; --main-color:#0B5CAB; --c-primary:rgb(11,92,171);
+  --accent:#f2a104; --accent-2:#f3a205;
+  --bg:#ffffff; --bg-soft:#fdfdfe;
+  --text:#1c1f23; --text-soft:#1d2024;
+  --gray-1:#f6f7f8; --gray-2:#f5f7f8;
+  --radius:6px; --radius-lg:7px;
+  --space-sm:13px; --space-md:26px; --space-lg:52px; --gap:25px;
+  --speed:180ms;
+}
+.site-header{background:var(--bg-soft);padding:18px 24px}
+.nav a{font-family:'Inter',system-ui,sans-serif;font-size:15px;color:var(--text)}
+.hero{background:#0b5cab;color:#fff;padding:clamp(48px,7vw,104px) 24px;border-radius:6px}
+.hero h1{font-family:'"Playfair Display"',Georgia,serif;font-size:clamp(2rem,5vw,3.4rem);line-height:1.08;font-weight:700}
+.hero p{font-family:'Inter',system-ui,sans-serif;font-size:17px;line-height:1.6;color:rgba(255,255,255,.82)}
+.hero .cta{background:#f2a104;color:#1c1f23;border-radius:6px;padding:12px 22px}
+.hero__scrim{background:linear-gradient(180deg,rgba(11,92,171,0) 0%,rgba(11,92,171,.86) 100%)}
+.card{border:1px solid #e6e8ea;border-radius:7px;box-shadow:0 1px 2px rgba(16,24,40,.06);background:#fdfdfe}
+.card__title{font-family:'"Playfair Display"',Georgia,serif;font-size:22px;line-height:1.25}
+.eyebrow{font:600 12px/1 'Inter';letter-spacing:.14em;text-transform:uppercase;color:#0b5cab}
+.grid{display:grid;gap:25px;grid-template-columns:repeat(3,1fr)}
+@media (max-width:960px){.grid{grid-template-columns:1fr}.hero{padding:40px 20px}.card__title{font-size:20px}}
+/* carried over from the previous build; some rules dead */
+.u-mt-13{margin-top:13px}.u-mt-sm{margin-top:12px}.flex-1{flex:1 1 0}.text-center{text-align:center}
+/* the legacy minified bundle.css this override was appended after still declares --brand as #0a5cab */
+@font-face{font-family:'Playfair Display';src:url('/demo/fonts/playfair.woff2') format('woff2')}
+Header. Body copy uses the same 'Inter' stack the page also loads from a Google Fonts <link>.
+```
+
+```html
+<!-- index.html (excerpt) -->
+<header class="site-header js-header u-mt-13">
+  <a class="brand" href="/">Acme Robotics</a>
+  <nav class="nav"><a href="/platform">Platform</a><a href="/pricing">Pricing</a></nav>
+</header>
+<section class="hero js-hero" data-parallax="true">
+  <h1 class="hero__title">Build faster with Acme</h1>
+  <p>Ship production robotics workflows in days, not quarters.</p>
+  <a class="cta" href="/signup">Start free</a>
+</section>
+<section class="features">
+  <p class="eyebrow">Why Acme</p>
+  <div class="grid">
+    <article class="card"><h3 class="card__title">Fast</h3><p>…</p></article>
+  </div>
+</section>
+```
+
+Nothing else about the source is available: no license file for the `playfair.woff2`
+font, no logo source, and the 390px screenshot is the only evidence of the mobile
+breakpoint.
+
+**Source fixtures** — parent theme `theme.json` (palette, font-family, font-size,
+spacing slugs and `styles`), `resources/css/app.css` (`--nextora-font-body` /
+`--nextora-font-heading` / `--nextora-font-button`), `styles/color-scheme/*.json`
+and `styles/font-preset/*.json`; sample child `theme.json` and
+`resources/css/modules/00-tokens.css`. The source dossier is embedded in the prompt;
+no fixture application is added.
+
+**Expected artefact / behaviour**
+
+- All nine dossier headings, in order, and the phase 0–6 roadmap with prerequisites,
+  owner skill and an observable gate per phase.
+- Evidence and confidence separates what was read (the CSS/HTML excerpt, the two
+  screenshots) from inference, and marks as unverified: DOM semantics not shown,
+  the `--brand` conflict, the font's licence and provenance, the logo, and anything
+  below the single captured mobile breakpoint.
+- Token evidence table with one row per candidate, and **role-based clustering**:
+  `#0b5cab`, `#0a5cab`, `#0B5CAB`, `rgb(11,92,171)` collapse to one brand role with
+  the conflict recorded; `13px`/`12px` and `26px`/`25px` collapse into one spacing
+  scale with exceptions named; `6px`/`7px` collapse into one radius role.
+- The normalization maps roles onto the parent's **existing preset identities** and
+  the `--nextora-font-*` roles — a source value is preserved only where it serves a
+  stable role, and additions get child-owned semantic slugs rather than a parallel
+  variable layer.
+- Utility classes (`u-mt-13`, `.flex-1`, `.text-center`), the `js-*` hooks and the
+  `data-parallax` attribute are classified as normalization noise, not as things to
+  reproduce; the duplicated legacy `--brand` override and the dead utility rules are
+  called out.
+- The `rgba(255,255,255,.82)` body copy on the brand band and the
+  `linear-gradient` scrim are treated as a **foreground/background pair** that needs
+  a measured contrast result, handed to `nextora-design-system` — not asserted as
+  readable.
+- The `'Playfair Display'` `@font-face` from `/demo/fonts/` and the Google Fonts
+  `<link>` are both **blocked**: unknown licence and provenance is not permission,
+  and the decision is recorded in `Unverified and blocked decisions` with the input
+  that would unblock it.
+- Spacing and radius decisions are handed to `nextora-design-system`; the report
+  states that pixel-parity is not an acceptance criterion.
+
+**Failure conditions**
+
+- A token table that copies literals (hexes, `13px`, `6px`/`7px`) into the child as
+  a parallel variable set, or that clusters by numerical similarity and merges
+  values that serve different roles.
+- Renaming or re-pointing an inherited parent preset slug, or copying a palette.
+- Claiming the brand band, the scrim or the font are fine without evidence; a
+  readability claim with no measurement.
+- Treating the `/demo/fonts/` font or the Google Fonts link as licensed to ship.
+- Reproducing source class names, `js-*` hooks or utility classes as the port's
+  markup convention, or proposing a pixel-perfect clone.
+- Writing files, or claiming a runtime result.
+
+### 11. Source sections to a conversion roadmap — `skills/nextora-template-porting/SKILL.md`
+
+**Prompt**
+
+> Plan the port of the source template described by the dossier appended to this
+> prompt into a Nextora child theme, using the parent and sample child at the roots
+> above as the capability inventory. Output the fixed conversion dossier — all nine
+> headings, in order — with every supplied page, section, interaction and asset
+> classified, plus the phase 0–6 roadmap with prerequisites, owner skill and an
+> observable gate per phase. Do not write files.
+
+**Embedded source dossier (part of the prompt)**
+
+A 12-page marketing site plus a small journal. Authored source: `*.html` pages, one
+`app.js` framework bundle, `styles/` and `assets/img/`. No component library and no
+build config.
+
+```
+pages:  index.html, pricing.html, about.html, contact.html, platform.html,
+        features.html, customers.html, careers.html, legal/privacy.html,
+        legal/terms.html, journal/index.html, journal/post.html
+shell:  the same <header> and <footer> markup is copy-pasted into all 12 pages;
+        the footer differs on 3 pages (an extra newsletter form block)
+shared sections repeated across pages:
+  - "logo strip" (customers.html, index.html, platform.html, features.html)
+  - "three-up feature cards" (index.html x1, features.html x2, platform.html x1)
+  - "testimonial carousel" (index.html, customers.html)
+  - "pricing table" (pricing.html, features.html)
+  - "CTA band" (10 of 12 pages)
+editorial:
+  - journal/index.html -- a filterable post list (category chips re-render the list
+    client-side from an inlined JSON array; no server filtering)
+  - journal/post.html -- long-form article body, share buttons, related-posts strip
+forms:   contact.html -- name/email/message form POSTing to /api/contact (the
+         endpoint is a vendor script with a demo key); a newsletter form in 2 footers
+interactions: mobile nav (hamburger + focus trap), testimonial carousel (autoplay,
+         arrows, dots), FAQ accordion (about.html), category filter (journal),
+         tabbed feature panel (platform.html), scroll-reveal animations on every section
+assets:  assets/img/hero-*.jpg (remote demo URLs on 4 pages), a logo .svg, a
+         sprite of 20 icons, a decorative animated Lottie JSON, 3 demo MP4 loops
+runtime: app.js (a jQuery-era framework bundle with its own carousel/accordion/
+         tabs plugins and a GSAP-like scroll-reveal), plus a Google Analytics tag
+         and a chat-widget script in the footer of every page
+licences: none shipped for the images, the Lottie file or the fonts
+```
+
+**Source fixtures** — parent `blocks/*/block.json` (including `nextora/contact-form`
+and the section blocks), `patterns/*.php`, `templates/`, `parts/`, `theme.json`
+(`customTemplates`, `templateParts`); sample child `patterns/*.php`, `templates/`,
+`parts/`, `blocks/*/block.json`. The source dossier is embedded in the prompt; no
+fixture application is added.
+
+**Expected artefact / behaviour**
+
+- All nine dossier headings, in order, and a roadmap with exactly phases 0–6, each
+  carrying prerequisites, the matrix rows/surfaces it consumes, the owner skill, an
+  observable checkpoint and a rollback boundary.
+- A page/route inventory for all 12 pages, and a **section matrix** in which every
+  supplied section has a row with source anchors, retained content, dependencies,
+  repeated/reusable status, target surface, closest existing candidate, decision,
+  editor ownership, dynamic-data needs, responsive behaviour, asset needs and
+  handoff skill.
+- The duplicated header/footer markup is one shared shell decision (reuse or one
+  child-owned part) — not 12 copies of the same markup in the target.
+- The **fixed decision ladder** is applied in order and stated: existing pattern →
+  existing parent/child/core block → new child pattern → thin template → part
+  override → extend a block → new block only for a behaviour/editing gap.
+- Core/existing surfaces win where they fit: the contact form is
+  `nextora/contact-form` rather than the vendor endpoint (`replace`); the FAQ
+  accordion, tabs, mobile nav and lightbox-style behaviours are `core behavior` or
+  existing-block behaviour rather than ports of `app.js`; the pricing table, feature
+  cards, logo strip and CTA band become patterns composed from existing blocks.
+- A **custom block** is proposed only for the one row whose editing model or data
+  shape nothing existing expresses (for example the client-side filterable journal
+  list), and the reason is written down.
+- The **journal index** page model is chosen correctly: editor-owned narrative and
+  order (`core/post-content` + an insert-once starter pattern) rather than a
+  theme-owned fixed pattern, because its owner edits posts and copy.
+- Full-page surfaces name exactly one ownership model each: hidden pattern + thin
+  template for the fixed marketing pages, `core/post-content` for the editorial
+  surfaces.
+- The scroll-reveal animations and the framework bundle are not preserved because
+  they exist; the interaction matrix records a reduced-motion-respecting decision
+  or `omit`.
+- Asset ledger rows for the remote demo images, the logo, the icon sprite, the
+  Lottie file, the demo MP4 loops and the untracked fonts, with dispositions —
+  remote demo URLs are excluded from production assets, and unknown licences are
+  blocked reuse decisions.
+- Third-party tracking (`analytics`, chat widget) is `exclude`/`replace`, never a
+  theme dependency; editorial media is routed to the media library, not the theme.
+- Handoffs dispatch to all applicable specialists: `nextora-child-themes` for
+  bootstrap/assets, `nextora-design-system` for tokens, contrast pairs and spacing
+  ownership, `nextora-site-composition` for templates, patterns and hierarchy, and
+  `nextora-gutenberg-blocks` only for the custom-block row.
+
+**Failure conditions**
+
+- Writing files, editing either source theme or the source template.
+- A generic checklist with no section-level decision, or a section matrix missing
+  supplied sections, interactions or assets.
+- Proposing custom blocks for sections that existing patterns or blocks already
+  express, or skipping the ladder and jumping to "new block".
+- Cloning the source's header/footer markup into many templates, or keeping the
+  framework/`app.js` because its classes or plugins exist.
+- The wrong page model for the editorial surfaces (a fixed theme pattern instead of
+  `core/post-content`, or vice versa for the fixed marketing pages).
+- Retaining the vendor/demo form endpoint, the tracking scripts or the remote demo
+  media as production theme assets, or treating an unknown licence as permission.
+- Inventing evidence not present in the dossier or the theme roots, or a roadmap
+  that omits phases, gates, owners or rollback boundaries.
 
 ## What these scenarios do and do not prove
 

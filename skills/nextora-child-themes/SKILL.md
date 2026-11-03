@@ -9,7 +9,10 @@ Creates and audits child themes of Nextora: the bootstrap, the asset pipeline an
 the child block registrar. Parent-level conventions live in the parent itself;
 block internals belong to `../nextora-gutenberg-blocks/SKILL.md`, and anything
 about palette, fonts or the visitor switcher belongs to
-`../nextora-design-system/SKILL.md`.
+`../nextora-design-system/SKILL.md`. When a child is being rebuilt from an
+external source template, `../nextora-template-porting/SKILL.md` supplies the
+evidence-backed dossier and phased roadmap this skill implements against; it
+supplies analysis and planning only and never overrides the child contract below.
 
 ## References to load
 

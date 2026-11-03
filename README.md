@@ -2,7 +2,8 @@
 
 Agent skills for the Nextora WordPress block-theme ecosystem: child themes,
 Gutenberg blocks, the design system and its optional visitor colour/font
-switcher, and template/part/pattern composition.
+switcher, template/part/pattern composition, and the intake and normalization of
+an external source template before it is ported into a Nextora child theme.
 
 These are **portable Agent Skills**, following the shared
 [specification](https://agentskills.io): each skill is a directory containing a
@@ -43,6 +44,9 @@ skills/
   nextora-site-composition/
     SKILL.md
     references/templates-and-patterns.md
+  nextora-template-porting/
+    SKILL.md                          # source-template intake, dossier, roadmap
+    references/template-intake-and-roadmap.md
 ```
 
 Each `SKILL.md` is a self-contained entrypoint under 250 lines with an ordered
@@ -59,9 +63,12 @@ contracts live in the `references/` files next to it.
 | Readable text on a dark, coloured or image-backed section; contrast pairs; deciding what owns a space | `nextora-design-system` |
 | Templates, template parts, patterns, page layouts, archives, post queries | `nextora-site-composition` |
 | Section rhythm that survives stacking; boundaries between adjacent sections | `nextora-site-composition` |
+| Port, migrate or audit an external source template: arbitrary HTML/static/framework source, a reachable site, screenshots or a brief; design-token extraction; section-to-block mapping; conversion roadmap | `nextora-template-porting` |
 | Anything spanning several of the above, or unknown scope | `nextora-ecosystem` (router) |
 
-Two combinations are obligatory: a new child theme that must follow presets needs
+Three combinations are obligatory: an external source template in any form starts
+with `nextora-template-porting`, whose dossier is frozen before the implementation
+specialists it names are loaded; a new child theme that must follow presets needs
 `nextora-child-themes` **and** `nextora-design-system`; a new or restyled block
 needs `nextora-gutenberg-blocks` **and** `nextora-design-system`. The router in
 `nextora-ecosystem` applies these rules and links the two shared references.
@@ -79,7 +86,7 @@ The repository is laid out the way the `skills` CLI expects
 directories on your machine:
 
 ```bash
-npx skills add miketropi/nextora-skills -l                     # list the five skills, install nothing
+npx skills add miketropi/nextora-skills -l                     # list the six skills, install nothing
 npx skills add miketropi/nextora-skills                        # install into the agents it detects
 npx skills add miketropi/nextora-skills -s nextora-ecosystem    # install just the router
 npx skills use miketropi/nextora-skills@nextora-design-system    # prompt for one skill, no install
@@ -123,9 +130,11 @@ paste are all equivalent.
 Honesty about coverage, so you know what is proven and what is inferred:
 
 - `npx skills add miketropi/nextora-skills -l` was run against the published
-  repository and discovers all five skills with their authored names and
-  descriptions.
-- The seven prompts in `evals/scenarios.md` were run through `omp` with the skill
+  repository and discovers the suite's skills with their authored names and
+  descriptions. The listing was last run against the five-skill suite;
+  `nextora-template-porting` follows the same `skills/<name>/SKILL.md` layout
+  contract but was not re-listed.
+- The eleven prompts in `evals/scenarios.md` were run through `omp` with the skill
   files loaded, and each answer was checked against its stated expectations.
 - No other client was driven end to end. The portability claim rests on the
   specification-conformant layout and minimal frontmatter, not on a test of every
@@ -144,6 +153,7 @@ Source roots (read-only; do not modify):
 - parent theme: /path/to/wp-content/themes/nextora
 - my child theme: /path/to/wp-content/themes/<child>
 - sample child, structural reference only: /path/to/wp-content/themes/<sample>
+- source template being ported, when one applies: /path/to/the/template-source
 ```
 
 If the parent is genuinely unavailable, say so. The skills are written to report
@@ -182,6 +192,17 @@ These are the payloads. Wrap them in whichever transport you chose above, and ad
 > Compose a nextfolio landing template and an insertable pattern from existing
 > blocks — do not create a new block.
 
+**Port an arbitrary source template** — `nextora-template-porting` (then only the
+specialists its dossier names):
+
+> Analyze the source template at the root above against my Nextora parent and
+> sample child, and return the fixed conversion dossier: evidence and confidence,
+> source inventory, target capability inventory, normalized design system, page
+> and section conversion matrix, asset and interaction disposition, target
+> file/surface map, conversion roadmap, and unverified and blocked decisions.
+> Then give the phase 0–6 roadmap with prerequisites, owner skill and an observable
+> gate per phase. Do not write files.
+
 **Make a section readable and give it rhythm** — `nextora-design-system` (and
 `nextora-site-composition` when the page is composed from sections):
 
@@ -198,8 +219,10 @@ These are the payloads. Wrap them in whichever transport you chose above, and ad
 
 ### Combining skills
 
-Some requests need two entrypoints, and the router applies the pairing for you:
+Some requests need more than one entrypoint, and the router applies the pairing
+for you:
 
+- External source template **in any form** → `nextora-template-porting` first, then only the implementation specialists its dossier names.
 - New child **that must follow presets** → `nextora-child-themes` + `nextora-design-system`.
 - New or restyled block **whose look matters** → `nextora-gutenberg-blocks` + `nextora-design-system`.
 
@@ -226,6 +249,7 @@ back. Useful endings:
 | --- | --- |
 | Read your actual theme and match its existing conventions | Edit the Nextora parent or the sampled child theme |
 | Reuse an existing block, pattern, helper or token rather than inventing one | Fabricate a function, path or source anchor |
+| Normalize a ported template into theme presets, blocks, patterns and editor ownership | Copy the source's markup, utility classes, framework conventions or pixels one-to-one |
 | Say which rule comes from the parent and which is this suite's own requirement | Promise WordPress-version compatibility from a `style.css` header |
 | Report a missing prerequisite instead of guessing | Ship a starter theme, generator or installer |
 | Hand you the downstream acceptance recipe and the target's own commands | Claim a build or browser result it did not observe |
@@ -255,12 +279,13 @@ agent to reread the live sources before editing.
 | It wrote files when you wanted a design | Nothing told it to stop | Add "output only, do not write files" |
 | It copied the sample child's palette, fonts or scope classes | The sample was named without a boundary | Say "structural reference only — this child gets its own slug, palette and scope class" |
 | It answered a broad request with a single specialist | The router was not loaded | Load `nextora-ecosystem`, or name the specialists you want |
+| It started implementing a port straight from the source markup | Nothing turned the source into normalized decisions first | Load `nextora-template-porting` and build from its design-system mapping and section matrix, not from the source's classes |
 | It gave you a design where you wanted a running result | This suite ships no runtime and runs nothing for you | Point it at a disposable WordPress install plus the §8 acceptance recipes in `skills/nextora-ecosystem/references/quality-gates.md`, or accept the answer as a design |
 | Your agent never mentions the skills | It is not looking in the directory the installer wrote to | Check which agents the CLI detected (`-a` to target explicitly), or load the entrypoint file directly |
 
 ## Evaluation
 
-`evals/scenarios.md` is an instruction-suite evaluation corpus: nine prompts
+`evals/scenarios.md` is an instruction-suite evaluation corpus: eleven prompts
 with their source fixtures, expected outputs and explicit failure conditions. It
 is not a fixture WordPress application and not an automated scoring framework — a
 human or agent runs the prompt and checks the observable result. The expectations
@@ -269,9 +294,10 @@ reusable with any client.
 
 ## Verification
 
-What was actually exercised while authoring this suite (2026-11-02):
+What was actually exercised while authoring this suite (2026-11-02, extended
+2026-11-03):
 
-- **Structure.** Five `skills/*/SKILL.md` entrypoints with directory-matching
+- **Structure.** Six `skills/*/SKILL.md` entrypoints with directory-matching
   `name` values, descriptions inside 1–1024 characters, every entrypoint under 250
   lines, every relative Markdown link (including cross-skill references) resolving,
   and exactly the layout above present with no stray files.
@@ -280,17 +306,19 @@ What was actually exercised while authoring this suite (2026-11-02):
   and the sampled child theme in two independent read-only reviews, one per source
   root. Fourteen inaccurate or unsupported statements were found and corrected
   before shipping.
-- **Instruction loading.** All nine prompts in `evals/scenarios.md` were run
+- **Instruction loading.** All eleven prompts in `evals/scenarios.md` were run
   against the real entrypoint files — one client, `omp`, with read-only tools and
   no skill discovery — and each answer was inspected against its stated
   expectations. The two design-system scenarios were re-run after the corrections
-  above, and the two scenarios added on 2026-11-03 were run both before and after
-  their skill changes; the before/after answers, the confounders and the
-  limitation that a run following the skill's own links may read sibling skills
-  are recorded in `evals/portfolio-field-test.md` §12.
+  above, and the two scenarios added on 2026-11-03, plus the template-porting
+  scenarios and the router check with an external source root added on 2026-11-03,
+  were run both before and after their skill changes; the before/after answers, the
+  confounders and the limitation that a run following the skill's own links may
+  read sibling skills are recorded in `evals/portfolio-field-test.md` §12.
 - **Distribution.** `npx skills add miketropi/nextora-skills -l` against the
-  published repository discovers all five skills with their authored names and
-  descriptions — listing only, with no install into any agent directory.
+  published repository discovers the suite's skills with their authored names and
+  descriptions — listing only, with no install into any agent directory. The last
+  run covered the five-skill suite; the sixth follows the same layout contract.
 
 **Not verified here:** nothing was built, installed or loaded in WordPress. No
 generated child theme, block, template or pattern was rendered in a browser, and no

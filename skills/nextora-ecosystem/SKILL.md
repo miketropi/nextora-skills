@@ -1,11 +1,11 @@
 ---
 name: nextora-ecosystem
-description: Entry point for work on the Nextora block-theme ecosystem — child themes, Gutenberg blocks, design presets and the visitor colour/font switcher, and template/part/pattern composition. Use when a request mentions Nextora or a Nextora child theme, when the task spans more than one of those areas, or when you need the source map and production quality gates for this ecosystem before writing code. Also use to decide which specialist skill a multi-part request needs.
+description: Entry point for work on the Nextora block-theme ecosystem — child themes, Gutenberg blocks, design presets and the visitor colour/font switcher, template/part/pattern composition, and the intake and normalization of an external source template before it is ported. Use when a request mentions Nextora or a Nextora child theme, when the task spans more than one of those areas, when a request involves porting or converting an arbitrary source template or static site into a Nextora child theme, or when you need the source map and production quality gates for this ecosystem before writing code. Also use to decide which specialist skill a multi-part request needs.
 ---
 
 # Nextora ecosystem — router
 
-Coordinates five skills that share one source of truth and one set of production
+Coordinates six skills that share one source of truth and one set of production
 gates. This entrypoint resolves the target theme, proves which specialists the
 request needs, and hands over. It does not contain the implementation rules:
 those live in the specialist skills and in this skill's two references.
@@ -18,6 +18,7 @@ those live in the specialist skills and in this skill's two references.
 | `../nextora-gutenberg-blocks/SKILL.md` | Block metadata, editor UI, dynamic render, repeaters, settings panels, view scripts. |
 | `../nextora-design-system/SKILL.md` | Palette/typography presets, style variations, the optional visitor colour/font switcher, token and CSS surfaces. |
 | `../nextora-site-composition/SKILL.md` | Templates, template parts, patterns, query/archive composition. |
+| `../nextora-template-porting/SKILL.md` | Intake, normalization and conversion planning for an arbitrary external source template: evidence classification, source manifest, token evidence and role mapping, section/interaction matrices, asset ledger, conversion dossier and phased roadmap. Analysis and planning only — it never implements. |
 
 Shared evidence and gates for every specialist:
 
@@ -82,10 +83,17 @@ requested behaviour or editing structure cannot be expressed otherwise.
 | Add/change a block: `block.json`, attributes, editor UI, `render.php`, view script, repeater, settings panel | `nextora-gutenberg-blocks` |
 | Colours, fonts, spacing tokens, style variations, the visitor switcher, "must follow the palette" | `nextora-design-system` |
 | Templates, template parts, patterns, page layouts, archives, post queries | `nextora-site-composition` |
+| Analyze, audit or port an external source template — arbitrary HTML/static/framework source, screenshots, a brief; design-token extraction, section-to-block mapping, conversion roadmap | `nextora-template-porting` |
 
-Combined requests load every applicable specialist. Two combinations are
+Combined requests load every applicable specialist. Three combinations are
 obligatory:
 
+- **External source template, in any form** → `nextora-template-porting` **first**,
+  then every implementation specialist its dossier names, and no others. The
+  template-porting dossier is frozen before implementation starts; it supplies the
+  analysis and the roadmap and never overrides a specialist's implementation
+  contract. `nextora-design-system` still owns every appearance decision the
+  dossier hands it.
 - **New child + any appearance requirement** → `nextora-child-themes` **and**
   `nextora-design-system`. A child that must follow preset or visitor switches
   cannot be finished by the child skill alone.
@@ -116,6 +124,8 @@ purely a question about where a rule comes from, answer from
 - Target theme and parent identified from their own `style.css`/`theme.json`, not assumed.
 - Only real, existing files cited; anything quoted as source was read in this session.
 - Every applicable specialist loaded, including the mandatory pairings above.
+- An external source-template request starts with `nextora-template-porting`, and
+  its dossier is frozen before any implementation specialist is loaded.
 - New code reuses existing blocks, patterns, helpers and tokens where they exist.
 - `references/quality-gates.md` applied to the result.
 - Nothing in the work depends on this router's own file layout beyond the relative links above.

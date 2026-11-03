@@ -9,6 +9,10 @@ Single authority for appearance in this suite. Child-theme code, block code,
 templates and patterns all defer here for palette, typography, tokens, style
 variations and the switcher. Load this skill together with `nextora-child-themes`
 for any new child, and with `nextora-gutenberg-blocks` for any restyled or new block.
+A port from an external source template starts at
+`../nextora-template-porting/SKILL.md`, which supplies the token evidence and
+source-to-role mapping but hands every preset, contrast-pair, spacing-ownership and
+storage decision to this skill — and never overrides it.
 
 ## Load these references first
 
