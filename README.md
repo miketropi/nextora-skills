@@ -56,7 +56,9 @@ contracts live in the `references/` files next to it.
 | Create or bootstrap a child theme, child asset pipeline, child block registration | `nextora-child-themes` |
 | Add or change a block: `block.json`, attributes, editor UI, `render.php`, view script, repeater, settings panel | `nextora-gutenberg-blocks` |
 | Colours, fonts, spacing tokens, style variations, the visitor switcher, "must follow the palette" | `nextora-design-system` |
+| Readable text on a dark, coloured or image-backed section; contrast pairs; deciding what owns a space | `nextora-design-system` |
 | Templates, template parts, patterns, page layouts, archives, post queries | `nextora-site-composition` |
+| Section rhythm that survives stacking; boundaries between adjacent sections | `nextora-site-composition` |
 | Anything spanning several of the above, or unknown scope | `nextora-ecosystem` (router) |
 
 Two combinations are obligatory: a new child theme that must follow presets needs
@@ -180,6 +182,14 @@ These are the payloads. Wrap them in whichever transport you chose above, and ad
 > Compose a nextfolio landing template and an insertable pattern from existing
 > blocks — do not create a new block.
 
+**Make a section readable and give it rhythm** — `nextora-design-system` (and
+`nextora-site-composition` when the page is composed from sections):
+
+> Add a dark section block that can take a background photo: separate heading,
+> body and background colour controls, and it must stay readable. Then stack five
+> sections on the front page without them touching or leaving gaps. Say who owns
+> each space and show what you would measure to prove it.
+
 **Review instead of build** — the specialist for the surface:
 
 > Review my child's blocks/team/edit.tsx. Report only deviations from
@@ -250,7 +260,7 @@ agent to reread the live sources before editing.
 
 ## Evaluation
 
-`evals/scenarios.md` is an instruction-suite evaluation corpus: seven prompts
+`evals/scenarios.md` is an instruction-suite evaluation corpus: nine prompts
 with their source fixtures, expected outputs and explicit failure conditions. It
 is not a fixture WordPress application and not an automated scoring framework — a
 human or agent runs the prompt and checks the observable result. The expectations
@@ -270,11 +280,14 @@ What was actually exercised while authoring this suite (2026-11-02):
   and the sampled child theme in two independent read-only reviews, one per source
   root. Fourteen inaccurate or unsupported statements were found and corrected
   before shipping.
-- **Instruction loading.** All seven prompts in `evals/scenarios.md` were run
+- **Instruction loading.** All nine prompts in `evals/scenarios.md` were run
   against the real entrypoint files — one client, `omp`, with read-only tools and
   no skill discovery — and each answer was inspected against its stated
   expectations. The two design-system scenarios were re-run after the corrections
-  above.
+  above, and the two scenarios added on 2026-11-03 were run both before and after
+  their skill changes; the before/after answers, the confounders and the
+  limitation that a run following the skill's own links may read sibling skills
+  are recorded in `evals/portfolio-field-test.md` §12.
 - **Distribution.** `npx skills add miketropi/nextora-skills -l` against the
   published repository discovers all five skills with their authored names and
   descriptions — listing only, with no install into any agent directory.
